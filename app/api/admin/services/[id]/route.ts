@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { sendServiceStatusEmail } from "@/lib/email";
 import { z } from "zod";
 
 const schema = z.object({
@@ -31,12 +30,7 @@ export async function PATCH(
     const body = await req.json();
     const data = schema.parse(body);
 
-    // Mevcut kaydı al (email için)
-    const existing = await prisma.serviceRequest.findUnique({
-      where: { id: params.id },
-      include: { user: { select: { email: true, name: true } } },
-    });
-
+    const existing = await prisma.serviceRequest.findUnique({ where: { id: params.id } });
     if (!existing) {
       return NextResponse.json({ error: "Talep bulunamadı" }, { status: 404 });
     }
@@ -50,20 +44,6 @@ export async function PATCH(
       where: { id: params.id },
       data: updateData,
     });
-
-    // Durum değiştiyse müşteriye email gönder
-    if (data.status && data.status !== existing.status) {
-      sendServiceStatusEmail({
-        to: existing.user.email,
-        customerName: existing.user.name ?? "Müşteri",
-        requestId: existing.id,
-        title: existing.title,
-        type: existing.type,
-        status: data.status,
-        price: data.price !== undefined ? data.price : (existing.price ? Number(existing.price) : null),
-        adminNotes: data.adminNotes !== undefined ? data.adminNotes : existing.adminNotes,
-      }).catch((err) => console.error("[ServiceStatus Email] Gönderilemedi:", err));
-    }
 
     return NextResponse.json(updated);
   } catch (error) {

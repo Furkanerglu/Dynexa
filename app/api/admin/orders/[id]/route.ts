@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { sendOrderStatusEmail } from "@/lib/email";
 import { z } from "zod";
 
 const schema = z.object({
@@ -27,40 +26,15 @@ export async function PATCH(
     const body = await req.json();
     const { status } = schema.parse(body);
 
-    // Mevcut siparişi getir (email için müşteri bilgileri dahil)
-    const order = await prisma.order.findUnique({
-      where: { id: params.id },
-      include: {
-        user: { select: { email: true, name: true } },
-        items: {
-          include: { product: { select: { name: true } } },
-        },
-      },
-    });
-
+    const order = await prisma.order.findUnique({ where: { id: params.id } });
     if (!order) {
       return NextResponse.json({ error: "Sipariş bulunamadı" }, { status: 404 });
     }
 
-    // Durumu güncelle
     const updated = await prisma.order.update({
       where: { id: params.id },
       data: { status },
     });
-
-    // Müşteriye email gönder (hata olsa bile response'u engelleme)
-    sendOrderStatusEmail({
-      to: order.user.email,
-      customerName: order.user.name ?? "Müşteri",
-      orderId: order.id,
-      status,
-      totalAmount: Number(order.totalAmount),
-      items: order.items.map((item) => ({
-        name: item.product.name,
-        quantity: item.quantity,
-        price: Number(item.price),
-      })),
-    }).catch((err) => console.error("[OrderStatus Email] Gönderilemedi:", err));
 
     return NextResponse.json(updated);
   } catch (error) {
