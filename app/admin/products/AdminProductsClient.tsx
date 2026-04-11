@@ -5,8 +5,10 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Plus, Edit2, Trash2, Loader2, X, Eye, EyeOff, Image as ImageIcon, Check } from "lucide-react";
+import { Plus, Edit2, Trash2, Loader2, X, Image as ImageIcon, Upload } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
+import { UploadButton } from "@uploadthing/react";
+import type { OurFileRouter } from "@/lib/uploadthing";
 
 interface Category {
   id: string;
@@ -54,7 +56,7 @@ export default function AdminProductsClient({ initialProducts, categories }: Pro
   const [loading, setLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [images, setImages] = useState<string[]>([]);
-  const [imageInput, setImageInput] = useState("");
+  const [uploading, setUploading] = useState(false);
   const [search, setSearch] = useState("");
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<ProductForm>({
@@ -65,7 +67,6 @@ export default function AdminProductsClient({ initialProducts, categories }: Pro
   const openCreate = () => {
     setEditingProduct(null);
     setImages([]);
-    setImageInput("");
     reset({ name: "", description: "", price: 0, salePrice: "", stock: 0, categoryId: "", brand: "", isActive: true });
     setShowModal(true);
   };
@@ -73,7 +74,6 @@ export default function AdminProductsClient({ initialProducts, categories }: Pro
   const openEdit = (p: Product) => {
     setEditingProduct(p);
     setImages(p.images);
-    setImageInput("");
     reset({
       name: p.name,
       description: p.description,
@@ -85,13 +85,6 @@ export default function AdminProductsClient({ initialProducts, categories }: Pro
       isActive: p.isActive,
     });
     setShowModal(true);
-  };
-
-  const addImage = () => {
-    const url = imageInput.trim();
-    if (!url) return;
-    setImages((prev) => [...prev, url]);
-    setImageInput("");
   };
 
   const removeImage = (idx: number) => {
@@ -396,29 +389,17 @@ export default function AdminProductsClient({ initialProducts, categories }: Pro
 
               {/* Resimler */}
               <div>
-                <label className="text-white/60 text-sm mb-1.5 block">Ürün Görselleri</label>
-                <div className="flex gap-2 mb-3">
-                  <input
-                    value={imageInput}
-                    onChange={(e) => setImageInput(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addImage())}
-                    placeholder="Görsel URL'si yapıştırın ve Enter'a basın"
-                    className="flex-1 px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/20 focus:border-[#FF6B35] focus:outline-none text-sm"
-                  />
-                  <button
-                    type="button"
-                    onClick={addImage}
-                    className="px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white/60 hover:text-white hover:border-[#FF6B35] transition-colors text-sm"
-                  >
-                    Ekle
-                  </button>
-                </div>
+                <label className="text-white/60 text-sm mb-2 block">
+                  Ürün Görselleri <span className="text-white/30">(max 8 adet, 4MB)</span>
+                </label>
+
+                {/* Yüklenen görseller */}
                 {images.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2 mb-3">
                     {images.map((url, idx) => (
                       <div key={idx} className="relative group">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={url} alt="" className="w-20 h-20 object-cover rounded-xl bg-white/5" onError={(e) => (e.currentTarget.src = "")} />
+                        <img src={url} alt="" className="w-20 h-20 object-cover rounded-xl bg-white/5 border border-white/10" />
                         <button
                           type="button"
                           onClick={() => removeImage(idx)}
@@ -426,15 +407,44 @@ export default function AdminProductsClient({ initialProducts, categories }: Pro
                         >
                           <X size={10} className="text-white" />
                         </button>
+                        {idx === 0 && (
+                          <span className="absolute bottom-1 left-1 text-[9px] bg-[#FF6B35] text-white px-1 rounded">Ana</span>
+                        )}
                       </div>
                     ))}
                   </div>
                 )}
-                {images.length === 0 && (
-                  <div className="flex items-center justify-center h-16 bg-white/[0.02] border border-dashed border-white/10 rounded-xl">
-                    <p className="text-white/20 text-xs">Henüz görsel yok</p>
-                  </div>
-                )}
+
+                {/* Upload butonu */}
+                <div className="border border-dashed border-white/20 rounded-xl p-4 bg-white/[0.02] hover:border-[#FF6B35]/40 transition-colors">
+                  <UploadButton<OurFileRouter, "productImage">
+                    endpoint="productImage"
+                    onUploadBegin={() => setUploading(true)}
+                    onClientUploadComplete={(res) => {
+                      setUploading(false);
+                      const urls = res.map((f) => f.url);
+                      setImages((prev) => [...prev, ...urls]);
+                      toast.success(`${urls.length} görsel yüklendi`);
+                    }}
+                    onUploadError={(err) => {
+                      setUploading(false);
+                      toast.error("Yükleme hatası: " + err.message);
+                    }}
+                    appearance={{
+                      button: "bg-[#FF6B35] hover:bg-[#ff5a1f] text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors ut-uploading:opacity-50 ut-uploading:cursor-not-allowed w-full",
+                      allowedContent: "text-white/30 text-xs mt-1",
+                      container: "flex flex-col items-center gap-1 w-full",
+                    }}
+                    content={{
+                      button: uploading
+                        ? "Yükleniyor..."
+                        : images.length > 0
+                        ? "Daha Fazla Görsel Ekle"
+                        : "Görsel Seç (JPG, PNG, WebP)",
+                      allowedContent: "JPG, PNG, WebP — max 4MB",
+                    }}
+                  />
+                </div>
               </div>
 
               {/* Aktif/Pasif */}
