@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { formatPrice } from "@/lib/utils";
-import { Package, Wrench, User, ChevronRight } from "lucide-react";
+import { Package, Wrench, User, ChevronRight, MapPin, Settings } from "lucide-react";
 
 export default async function AccountPage() {
   const session = await auth();
@@ -47,14 +47,37 @@ export default async function AccountPage() {
     <div className="min-h-screen bg-[#020202] pt-24 pb-16">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="flex items-center gap-4 mb-10">
-          <div className="w-14 h-14 rounded-2xl bg-[#FF6B35]/10 border border-[#FF6B35]/20 flex items-center justify-center">
-            <User size={24} className="text-[#FF6B35]" />
+        <div className="flex items-center justify-between gap-4 mb-10">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-[#FF6B35]/10 border border-[#FF6B35]/20 flex items-center justify-center">
+              <User size={24} className="text-[#FF6B35]" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-white">{session.user.name}</h1>
+              <p className="text-white/40 text-sm">{session.user.email}</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-2xl font-bold text-white">{session.user.name}</h1>
-            <p className="text-white/40 text-sm">{session.user.email}</p>
-          </div>
+          <Link
+            href="/account/settings"
+            className="flex items-center gap-2 px-4 py-2 border border-white/10 rounded-xl text-white/50 hover:text-white hover:border-white/30 transition-all text-sm"
+          >
+            <Settings size={15} />
+            Ayarlar
+          </Link>
+        </div>
+
+        {/* Hızlı Linkler */}
+        <div className="grid grid-cols-2 gap-3 mb-8">
+          <Link href="/account/addresses" className="p-4 bg-white/[0.03] border border-white/10 rounded-2xl hover:border-[#FF6B35]/30 transition-all group">
+            <MapPin size={20} className="text-[#FF6B35] mb-2" />
+            <p className="text-white font-medium text-sm">Adreslerim</p>
+            <p className="text-white/40 text-xs mt-0.5">Teslimat adreslerini yönet</p>
+          </Link>
+          <Link href="/account/settings" className="p-4 bg-white/[0.03] border border-white/10 rounded-2xl hover:border-[#FF6B35]/30 transition-all group">
+            <Settings size={20} className="text-[#FF6B35] mb-2" />
+            <p className="text-white font-medium text-sm">Hesap Ayarları</p>
+            <p className="text-white/40 text-xs mt-0.5">Bilgileri ve şifreyi güncelle</p>
+          </Link>
         </div>
 
         {/* Son Siparişler */}

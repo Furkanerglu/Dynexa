@@ -173,7 +173,7 @@ export function Navbar() {
                       </Link>
                     )}
                     <button
-                      onClick={() => signOut({ callbackUrl: "/" })}
+                      onClick={() => signOut({ callbackUrl: window.location.origin })}
                       className="w-full text-left px-4 py-3 text-sm text-white/40 hover:text-white hover:bg-white/5 transition-colors border-t border-white/10"
                     >
                       Çıkış Yap

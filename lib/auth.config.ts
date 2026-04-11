@@ -3,6 +3,7 @@ import type { NextAuthConfig } from "next-auth";
 // Edge Runtime'da çalışan hafif auth config (bcryptjs YOK)
 // Sadece session/JWT okuma için — middleware bunu kullanır
 export const authConfig: NextAuthConfig = {
+  trustHost: true,
   session: { strategy: "jwt" },
   pages: {
     signIn: "/login",
