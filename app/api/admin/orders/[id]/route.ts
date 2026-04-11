@@ -13,8 +13,14 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   const session = await auth();
-  if (!session || session.user.role !== "ADMIN") {
-    return NextResponse.json({ error: "Yetkisiz" }, { status: 403 });
+  if (!session) {
+    return NextResponse.json({ error: "Oturum bulunamadı" }, { status: 401 });
+  }
+  if ((session.user as { role?: string }).role !== "ADMIN") {
+    return NextResponse.json(
+      { error: `Yetkisiz — rol: ${(session.user as { role?: string }).role ?? "yok"}` },
+      { status: 403 }
+    );
   }
 
   try {
