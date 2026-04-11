@@ -3,96 +3,74 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { formatPrice } from "@/lib/utils";
-import {
-  ChevronDown, ChevronUp, Filter, X,
-  FileText, Scan, Wrench, Clock, Check,
-} from "lucide-react";
+import { ChevronDown, ChevronUp, Check, Filter, X } from "lucide-react";
 
 // ─── Sabitler ────────────────────────────────────────────────────────────────
 
-const STATUS_OPTIONS = [
-  { value: "PENDING",     label: "Beklemede",      badge: "text-yellow-400  bg-yellow-400/10  border border-yellow-400/30"  },
-  { value: "REVIEWING",   label: "İnceleniyor",    badge: "text-blue-400    bg-blue-400/10    border border-blue-400/30"    },
-  { value: "QUOTED",      label: "Fiyat Verildi",  badge: "text-purple-400  bg-purple-400/10  border border-purple-400/30"  },
-  { value: "CONFIRMED",   label: "Onaylandı",      badge: "text-[#FF6B35]   bg-[#FF6B35]/10   border border-[#FF6B35]/30"   },
-  { value: "IN_PROGRESS", label: "İşlemde",        badge: "text-orange-400  bg-orange-400/10  border border-orange-400/30"  },
-  { value: "COMPLETED",   label: "Tamamlandı",     badge: "text-[#00D4AA]   bg-[#00D4AA]/10   border border-[#00D4AA]/30"   },
-  { value: "CANCELLED",   label: "İptal Edildi",   badge: "text-red-400     bg-red-400/10     border border-red-400/30"     },
+const STATUS_LIST = [
+  { value: "PENDING",     label: "Beklemede",      cls: "text-yellow-400  bg-yellow-400/10  border-yellow-400/30"  },
+  { value: "REVIEWING",   label: "İnceleniyor",    cls: "text-blue-400    bg-blue-400/10    border-blue-400/30"    },
+  { value: "QUOTED",      label: "Fiyat Verildi",  cls: "text-purple-400  bg-purple-400/10  border-purple-400/30"  },
+  { value: "CONFIRMED",   label: "Onaylandı",      cls: "text-[#FF6B35]   bg-[#FF6B35]/10   border-[#FF6B35]/30"   },
+  { value: "IN_PROGRESS", label: "İşlemde",        cls: "text-orange-400  bg-orange-400/10  border-orange-400/30"  },
+  { value: "COMPLETED",   label: "Tamamlandı",     cls: "text-[#00D4AA]   bg-[#00D4AA]/10   border-[#00D4AA]/30"   },
+  { value: "CANCELLED",   label: "İptal",          cls: "text-red-400     bg-red-400/10     border-red-400/30"     },
 ];
 
-const TYPE_OPTIONS = [
-  { value: "PRINT",     label: "3D Baskı",    Icon: FileText },
-  { value: "SCANNING",  label: "3D Tarama",   Icon: Scan     },
-  { value: "TECHNICAL", label: "Teknik Servis", Icon: Wrench  },
+const TYPE_LIST = [
+  { value: "PRINT",     label: "3D Baskı"     },
+  { value: "SCANNING",  label: "3D Tarama"    },
+  { value: "TECHNICAL", label: "Teknik Servis" },
 ];
 
-const ACTIVE_STATUSES = ["PENDING", "REVIEWING", "QUOTED", "CONFIRMED", "IN_PROGRESS"];
-const DONE_STATUSES   = ["COMPLETED", "CANCELLED"];
+const ACTIVE = ["PENDING", "REVIEWING", "QUOTED", "CONFIRMED", "IN_PROGRESS"];
 
-function statusMeta(v: string) {
-  return STATUS_OPTIONS.find((s) => s.value === v) ?? STATUS_OPTIONS[0];
-}
-function typeMeta(v: string) {
-  return TYPE_OPTIONS.find((t) => t.value === v) ?? TYPE_OPTIONS[0];
-}
+function getStatus(v: string) { return STATUS_LIST.find(s => s.value === v) ?? STATUS_LIST[0]; }
+function getType(v: string)   { return TYPE_LIST.find(t => t.value === v)   ?? TYPE_LIST[0]; }
 
-// ─── Tipler ──────────────────────────────────────────────────────────────────
-
-type ServiceRequest = {
-  id: string;
-  type: string;
-  status: string;
-  title: string;
-  description: string;
-  files: string[];
-  specs: Record<string, unknown> | null;
-  price: number | null;
-  notes: string | null;
-  adminNotes: string | null;
-  createdAt: string;
-  updatedAt: string;
+type SR = {
+  id: string; type: string; status: string; title: string; description: string;
+  files: string[]; specs: Record<string, unknown> | null;
+  price: number | null; notes: string | null; adminNotes: string | null;
+  createdAt: string; updatedAt: string;
   user: { name: string | null; email: string };
 };
 
-// ─── Status Dropdown ─────────────────────────────────────────────────────────
+// ─── Durum Dropdown (standalone) ─────────────────────────────────────────────
 
-function StatusDropdown({
-  id, current, loading, onUpdate,
-}: { id: string; current: string; loading: boolean; onUpdate: (id: string, status: string) => void }) {
+function StatusPicker({ id, status, onSave }: { id: string; status: string; onSave: (id: string, val: string) => void }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const meta = statusMeta(current);
+  const cur = getStatus(status);
 
   useEffect(() => {
-    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
+    function out(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", out);
+    return () => document.removeEventListener("mousedown", out);
   }, []);
 
   return (
-    <div ref={ref} className="relative inline-block">
+    <div ref={ref} className="relative">
       <button
-        type="button"
-        disabled={loading}
-        onClick={() => setOpen((v) => !v)}
-        className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full whitespace-nowrap transition-all ${meta.badge} ${loading ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:brightness-125 active:scale-95"}`}
+        onClick={() => setOpen(v => !v)}
+        className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border cursor-pointer hover:brightness-125 active:scale-95 transition-all whitespace-nowrap ${cur.cls}`}
       >
-        {loading && <svg className="animate-spin w-3 h-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>}
-        {meta.label}
-        <ChevronDown size={11} className={`transition-transform ${open ? "rotate-180" : ""}`}/>
+        {cur.label}
+        <ChevronDown size={11} className={open ? "rotate-180 transition-transform" : "transition-transform"} />
       </button>
 
       {open && (
-        <div className="absolute z-50 left-0 top-full mt-1 w-44 bg-[#111] border border-white/10 rounded-xl shadow-2xl overflow-hidden">
-          {STATUS_OPTIONS.map((opt) => (
+        <div className="absolute z-[100] left-0 top-[calc(100%+4px)] w-44 bg-[#0f0f0f] border border-white/15 rounded-xl shadow-2xl overflow-hidden">
+          {STATUS_LIST.map(opt => (
             <button
               key={opt.value}
-              type="button"
-              onClick={() => { setOpen(false); if (opt.value !== current) onUpdate(id, opt.value); }}
-              className={`w-full text-left flex items-center gap-2 px-3 py-2 transition-colors hover:bg-white/5 ${opt.value === current ? "opacity-50 cursor-default" : "cursor-pointer"}`}
+              onClick={() => { setOpen(false); if (opt.value !== status) onSave(id, opt.value); }}
+              className="w-full flex items-center gap-2 px-3 py-2 hover:bg-white/5 transition-colors text-left"
             >
-              <span className={`flex-1 px-2 py-0.5 rounded-full text-xs ${opt.badge}`}>{opt.label}</span>
-              {opt.value === current && <Check size={12} className="text-white/30" />}
+              <span className={`flex-1 px-2 py-0.5 rounded-full text-xs border ${opt.cls}`}>{opt.label}</span>
+              {opt.value === status && <Check size={11} className="text-white/30 flex-shrink-0" />}
             </button>
           ))}
         </div>
@@ -103,112 +81,89 @@ function StatusDropdown({
 
 // ─── Servis Kartı ─────────────────────────────────────────────────────────────
 
-function ServiceCard({
-  sr, loading, onUpdate,
-}: { sr: ServiceRequest; loading: boolean; onUpdate: (id: string, patch: Partial<{ status: string; price: number | null; adminNotes: string | null }>) => void }) {
-  const [expanded, setExpanded]   = useState(false);
-  const [editPrice, setEditPrice] = useState(false);
-  const [priceVal, setPriceVal]   = useState(sr.price != null ? String(sr.price) : "");
-  const [noteVal, setNoteVal]     = useState(sr.adminNotes ?? "");
-  const [noteEdit, setNoteEdit]   = useState(false);
+function ServiceCard({ sr, onUpdate }: { sr: SR; onUpdate: (id: string, patch: object) => Promise<void> }) {
+  const [open, setOpen]         = useState(false);
+  const [saving, setSaving]     = useState(false);
+  const [priceInput, setPriceInput] = useState(sr.price != null ? String(sr.price) : "");
+  const [noteInput, setNoteInput]   = useState(sr.adminNotes ?? "");
 
-  const typeMt = typeMeta(sr.type);
-  const TypeIcon = typeMt.Icon;
+  const st = getStatus(sr.status);
+  const ty = getType(sr.type);
 
-  function savePrice() {
-    const n = parseFloat(priceVal.replace(",", "."));
-    if (isNaN(n) || n < 0) { toast.error("Geçersiz fiyat"); return; }
-    onUpdate(sr.id, { price: n, status: sr.status === "REVIEWING" ? "QUOTED" : sr.status });
-    setEditPrice(false);
+  async function changeStatus(id: string, val: string) {
+    setSaving(true);
+    await onUpdate(id, { status: val });
+    setSaving(false);
   }
 
-  function saveNote() {
-    onUpdate(sr.id, { adminNotes: noteVal || null });
-    setNoteEdit(false);
+  async function savePrice() {
+    const n = parseFloat(priceInput.replace(",", "."));
+    if (isNaN(n) || n < 0) { toast.error("Geçersiz fiyat"); return; }
+    setSaving(true);
+    const patch: Record<string, unknown> = { price: n };
+    if (sr.status === "REVIEWING") patch.status = "QUOTED";
+    await onUpdate(sr.id, patch);
+    setSaving(false);
+  }
+
+  async function saveNote() {
+    setSaving(true);
+    await onUpdate(sr.id, { adminNotes: noteInput.trim() || null });
+    setSaving(false);
   }
 
   return (
-    <div className={`bg-white/[0.03] border rounded-2xl overflow-hidden transition-all ${loading ? "opacity-60" : ""} ${expanded ? "border-white/20" : "border-white/10"}`}>
-      {/* Kart başlığı */}
-      <div className="flex items-start gap-4 p-5">
-        {/* Tip ikonu */}
-        <div className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-          <TypeIcon size={16} className="text-[#FF6B35]" />
-        </div>
+    <div className={`border rounded-2xl overflow-visible transition-all ${open ? "border-white/20 bg-white/[0.04]" : "border-white/10 bg-white/[0.02]"} ${saving ? "opacity-60 pointer-events-none" : ""}`}>
 
-        {/* Bilgiler */}
+      {/* Kart başlık satırı */}
+      <div className="flex items-center gap-3 px-5 py-4">
+
+        {/* Tip + Başlık */}
         <div className="flex-1 min-w-0">
-          <div className="flex flex-wrap items-center gap-2 mb-1">
-            <span className="text-white font-semibold text-sm truncate">{sr.title}</span>
-            <span className="text-white/30 text-[11px] px-2 py-0.5 bg-white/5 rounded-full border border-white/10 flex-shrink-0">
-              {typeMt.label}
-            </span>
-            {sr.status === "CANCELLED" && (
-              <span className="text-[11px] px-2 py-0.5 bg-red-500/10 text-red-400 rounded-full border border-red-400/20 flex-shrink-0">
-                İptal Edildi
-              </span>
-            )}
+          <div className="flex items-center gap-2 flex-wrap mb-0.5">
+            <span className="text-[11px] text-white/40 bg-white/5 border border-white/10 px-2 py-0.5 rounded-full">{ty.label}</span>
+            <span className={`text-[11px] px-2 py-0.5 rounded-full border ${st.cls}`}>{st.label}</span>
           </div>
-          <p className="text-white/40 text-xs mb-2">
-            {sr.user.name ?? "—"} ·{" "}
-            <span className="text-white/25">{sr.user.email}</span> ·{" "}
-            <Clock size={10} className="inline mb-0.5" />{" "}
-            {new Date(sr.createdAt).toLocaleDateString("tr-TR", { day: "2-digit", month: "short", year: "numeric" })}
-          </p>
-          <p className="text-white/55 text-sm line-clamp-2">{sr.description}</p>
+          <p className="text-white font-medium text-sm truncate">{sr.title}</p>
+          <p className="text-white/35 text-xs">{sr.user.name ?? "—"} · {sr.user.email} · {new Date(sr.createdAt).toLocaleDateString("tr-TR")}</p>
         </div>
 
-        {/* Sağ panel: durum + fiyat */}
-        <div className="flex flex-col items-end gap-2 flex-shrink-0">
-          <StatusDropdown id={sr.id} current={sr.status} loading={loading} onUpdate={(id, s) => onUpdate(id, { status: s })} />
-
-          {sr.price != null ? (
-            <button
-              type="button"
-              onClick={() => { setEditPrice(true); setExpanded(true); }}
-              className="text-[#FF6B35] font-bold text-sm hover:underline"
-            >
-              {formatPrice(sr.price)}
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => { setEditPrice(true); setExpanded(true); }}
-              className="text-xs text-white/30 hover:text-[#FF6B35] border border-dashed border-white/20 hover:border-[#FF6B35]/40 px-2.5 py-0.5 rounded-full transition-colors"
-            >
-              + Fiyat Gir
-            </button>
-          )}
+        {/* Fiyat */}
+        <div className="text-right flex-shrink-0">
+          {sr.price != null
+            ? <p className="text-[#FF6B35] font-bold text-sm">{formatPrice(sr.price)}</p>
+            : <p className="text-white/25 text-xs">Fiyat yok</p>
+          }
         </div>
 
-        {/* Genişlet/Daralt */}
-        <button
-          type="button"
-          onClick={() => setExpanded((v) => !v)}
-          className="text-white/30 hover:text-white transition-colors flex-shrink-0 mt-1"
-        >
-          {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-        </button>
+        {/* Durum değiştir + Genişlet */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <StatusPicker id={sr.id} status={sr.status} onSave={changeStatus} />
+          <button onClick={() => setOpen(v => !v)} className="text-white/30 hover:text-white transition-colors p-1">
+            {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          </button>
+        </div>
       </div>
 
-      {/* Genişletilmiş detay */}
-      {expanded && (
-        <div className="border-t border-white/5 px-5 pb-5 pt-4 space-y-4">
-          {/* Tam açıklama */}
+      {/* Genişletilmiş panel */}
+      {open && (
+        <div className="border-t border-white/5 px-5 py-4 space-y-5">
+
+          {/* Açıklama */}
           <div>
-            <p className="text-[11px] text-white/30 uppercase tracking-wider mb-1">Açıklama</p>
-            <p className="text-white/70 text-sm leading-relaxed">{sr.description}</p>
+            <p className="text-[11px] text-white/30 uppercase tracking-wide mb-1">Açıklama</p>
+            <p className="text-white/65 text-sm leading-relaxed">{sr.description}</p>
           </div>
 
           {/* Specs */}
           {sr.specs && Object.keys(sr.specs).length > 0 && (
             <div>
-              <p className="text-[11px] text-white/30 uppercase tracking-wider mb-2">Teknik Özellikler</p>
-              <div className="grid grid-cols-2 gap-2">
+              <p className="text-[11px] text-white/30 uppercase tracking-wide mb-2">Teknik Özellikler</p>
+              <div className="flex flex-wrap gap-2">
                 {Object.entries(sr.specs).map(([k, v]) => (
-                  <div key={k} className="bg-white/5 rounded-lg px-3 py-2">
-                    <p className="text-[10px] text-white/30 capitalize">{k}</p>
-                    <p className="text-white/80 text-xs font-medium">{String(v)}</p>
+                  <div key={k} className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5">
+                    <span className="text-[10px] text-white/30">{k}: </span>
+                    <span className="text-white/70 text-xs font-medium">{String(v)}</span>
                   </div>
                 ))}
               </div>
@@ -218,16 +173,11 @@ function ServiceCard({
           {/* Dosyalar */}
           {sr.files.length > 0 && (
             <div>
-              <p className="text-[11px] text-white/30 uppercase tracking-wider mb-2">Yüklenen Dosyalar</p>
+              <p className="text-[11px] text-white/30 uppercase tracking-wide mb-2">Dosyalar</p>
               <div className="flex flex-wrap gap-2">
                 {sr.files.map((url, i) => (
-                  <a
-                    key={i}
-                    href={url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-xs text-[#FF6B35] hover:underline bg-[#FF6B35]/10 border border-[#FF6B35]/20 px-2.5 py-1 rounded-lg"
-                  >
+                  <a key={i} href={url} target="_blank" rel="noreferrer"
+                    className="text-xs text-[#FF6B35] bg-[#FF6B35]/10 border border-[#FF6B35]/20 px-2.5 py-1 rounded-lg hover:underline">
                     Dosya {i + 1}
                   </a>
                 ))}
@@ -238,84 +188,60 @@ function ServiceCard({
           {/* Müşteri notu */}
           {sr.notes && (
             <div>
-              <p className="text-[11px] text-white/30 uppercase tracking-wider mb-1">Müşteri Notu</p>
-              <p className="text-white/60 text-sm italic">"{sr.notes}"</p>
+              <p className="text-[11px] text-white/30 uppercase tracking-wide mb-1">Müşteri Notu</p>
+              <p className="text-white/55 text-sm italic">"{sr.notes}"</p>
             </div>
           )}
 
-          {/* Fiyat girişi */}
+          {/* Fiyat Girişi */}
           <div>
-            <p className="text-[11px] text-white/30 uppercase tracking-wider mb-2">Fiyat Teklifi</p>
-            {editPrice ? (
-              <div className="flex items-center gap-2">
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40 text-sm">₺</span>
-                  <input
-                    type="text"
-                    value={priceVal}
-                    onChange={(e) => setPriceVal(e.target.value)}
-                    placeholder="0.00"
-                    className="bg-white/5 border border-white/10 rounded-lg pl-7 pr-3 py-1.5 text-white text-sm w-36 focus:outline-none focus:border-[#FF6B35]/50"
-                    onKeyDown={(e) => { if (e.key === "Enter") savePrice(); if (e.key === "Escape") setEditPrice(false); }}
-                    autoFocus
-                  />
-                </div>
-                <button onClick={savePrice} className="text-xs bg-[#FF6B35] text-white px-3 py-1.5 rounded-lg hover:bg-[#e55a28] transition-colors">Kaydet</button>
-                <button onClick={() => setEditPrice(false)} className="text-xs text-white/40 hover:text-white px-2 py-1.5 transition-colors">İptal</button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-3">
-                <span className={sr.price != null ? "text-[#FF6B35] font-bold text-lg" : "text-white/30 text-sm"}>
-                  {sr.price != null ? formatPrice(sr.price) : "Henüz fiyat girilmedi"}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setEditPrice(true)}
-                  className="text-xs text-white/40 hover:text-[#FF6B35] border border-dashed border-white/20 hover:border-[#FF6B35]/40 px-2.5 py-0.5 rounded-full transition-colors"
-                >
-                  {sr.price != null ? "Değiştir" : "Fiyat Gir"}
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Admin notu */}
-          <div>
-            <p className="text-[11px] text-white/30 uppercase tracking-wider mb-2">Admin Notu (müşteriye gönderilir)</p>
-            {noteEdit ? (
-              <div className="space-y-2">
-                <textarea
-                  value={noteVal}
-                  onChange={(e) => setNoteVal(e.target.value)}
-                  rows={3}
-                  placeholder="Müşteriye iletilecek notunuzu yazın..."
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white text-sm resize-none focus:outline-none focus:border-[#FF6B35]/50"
-                  autoFocus
+            <p className="text-[11px] text-white/30 uppercase tracking-wide mb-2">Fiyat Teklifi</p>
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40 text-sm select-none">₺</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={priceInput}
+                  onChange={e => setPriceInput(e.target.value)}
+                  placeholder="0.00"
+                  className="bg-white/5 border border-white/10 rounded-xl pl-8 pr-3 py-2 text-white text-sm w-40 focus:outline-none focus:border-[#FF6B35]/60 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
-                <div className="flex gap-2">
-                  <button onClick={saveNote} className="text-xs bg-[#FF6B35] text-white px-3 py-1.5 rounded-lg hover:bg-[#e55a28] transition-colors">Kaydet</button>
-                  <button onClick={() => { setNoteVal(sr.adminNotes ?? ""); setNoteEdit(false); }} className="text-xs text-white/40 hover:text-white px-2 py-1.5 transition-colors">İptal</button>
-                </div>
               </div>
-            ) : (
-              <div
-                onClick={() => setNoteEdit(true)}
-                className="min-h-[40px] bg-white/[0.03] border border-dashed border-white/10 hover:border-white/25 rounded-xl px-3 py-2 cursor-text transition-colors"
+              <button
+                onClick={savePrice}
+                disabled={saving}
+                className="bg-[#FF6B35] hover:bg-[#e55a28] text-white text-xs px-4 py-2 rounded-xl transition-colors disabled:opacity-50"
               >
-                {sr.adminNotes
-                  ? <p className="text-white/60 text-sm">{sr.adminNotes}</p>
-                  : <p className="text-white/25 text-sm italic">Not eklemek için tıklayın...</p>
-                }
-              </div>
-            )}
+                {sr.status === "REVIEWING" ? "Fiyat Ver (QUOTED'a geç)" : "Kaydet"}
+              </button>
+            </div>
           </div>
 
-          {/* Talep ID + Son güncelleme */}
-          <div className="flex items-center justify-between pt-2 border-t border-white/5">
+          {/* Admin Notu */}
+          <div>
+            <p className="text-[11px] text-white/30 uppercase tracking-wide mb-2">Admin Notu</p>
+            <textarea
+              value={noteInput}
+              onChange={e => setNoteInput(e.target.value)}
+              rows={3}
+              placeholder="Müşteriye iletmek istediğiniz not..."
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white text-sm resize-none focus:outline-none focus:border-[#FF6B35]/60 placeholder:text-white/20"
+            />
+            <button
+              onClick={saveNote}
+              disabled={saving}
+              className="mt-2 bg-white/10 hover:bg-white/15 text-white text-xs px-4 py-2 rounded-xl transition-colors disabled:opacity-50"
+            >
+              Notu Kaydet
+            </button>
+          </div>
+
+          {/* Meta */}
+          <div className="flex justify-between pt-2 border-t border-white/5">
             <span className="text-[11px] text-white/20 font-mono">#{sr.id.slice(-8).toUpperCase()}</span>
-            <span className="text-[11px] text-white/20">
-              Güncellendi: {new Date(sr.updatedAt).toLocaleDateString("tr-TR")}
-            </span>
+            <span className="text-[11px] text-white/20">Güncellendi: {new Date(sr.updatedAt).toLocaleDateString("tr-TR")}</span>
           </div>
         </div>
       )}
@@ -323,96 +249,59 @@ function ServiceCard({
   );
 }
 
-// ─── Ana Bileşen ─────────────────────────────────────────────────────────────
+// ─── Ana Component ────────────────────────────────────────────────────────────
 
-export default function AdminServicesClient({ initialRequests }: { initialRequests: ServiceRequest[] }) {
-  const [requests, setRequests]       = useState<ServiceRequest[]>(initialRequests);
-  const [loadingId, setLoadingId]     = useState<string | null>(null);
+export default function AdminServicesClient({ initialRequests }: { initialRequests: SR[] }) {
+  const [items, setItems]             = useState<SR[]>(initialRequests);
   const [showDone, setShowDone]       = useState(false);
-  const [filterType, setFilterType]   = useState<string>("ALL");
-  const [filterStatus, setFilterStatus] = useState<string>("ALL");
+  const [showFilter, setShowFilter]   = useState(false);
+  const [filterType, setFilterType]   = useState("ALL");
+  const [filterStatus, setFilterStatus] = useState("ALL");
   const [dateFrom, setDateFrom]       = useState("");
   const [dateTo, setDateTo]           = useState("");
-  const [showFilters, setShowFilters] = useState(false);
 
-  // Filtre uygula
-  const filtered = useMemo(() => {
-    return requests.filter((r) => {
-      const isDone = DONE_STATUSES.includes(r.status);
-      if (!showDone && isDone) return false;
-      if (filterType !== "ALL" && r.type !== filterType) return false;
-      if (filterStatus !== "ALL" && r.status !== filterStatus) return false;
-      if (dateFrom) {
-        const from = new Date(dateFrom); from.setHours(0, 0, 0, 0);
-        if (new Date(r.createdAt) < from) return false;
-      }
-      if (dateTo) {
-        const to = new Date(dateTo); to.setHours(23, 59, 59, 999);
-        if (new Date(r.createdAt) > to) return false;
-      }
-      return true;
-    });
-  }, [requests, showDone, filterType, filterStatus, dateFrom, dateTo]);
+  const activeCount = items.filter(r => ACTIVE.includes(r.status)).length;
+  const doneCount   = items.filter(r => !ACTIVE.includes(r.status)).length;
+  const hasFilter   = filterType !== "ALL" || filterStatus !== "ALL" || !!dateFrom || !!dateTo;
 
-  const activeCount = requests.filter((r) => ACTIVE_STATUSES.includes(r.status)).length;
-  const doneCount   = requests.filter((r) => DONE_STATUSES.includes(r.status)).length;
+  const filtered = useMemo(() => items.filter(r => {
+    if (!showDone && !ACTIVE.includes(r.status)) return false;
+    if (filterType !== "ALL" && r.type !== filterType) return false;
+    if (filterStatus !== "ALL" && r.status !== filterStatus) return false;
+    if (dateFrom) { const d = new Date(dateFrom); d.setHours(0,0,0,0); if (new Date(r.createdAt) < d) return false; }
+    if (dateTo)   { const d = new Date(dateTo);   d.setHours(23,59,59,999); if (new Date(r.createdAt) > d) return false; }
+    return true;
+  }), [items, showDone, filterType, filterStatus, dateFrom, dateTo]);
 
-  function clearFilters() {
-    setFilterType("ALL");
-    setFilterStatus("ALL");
-    setDateFrom("");
-    setDateTo("");
-  }
-
-  const hasActiveFilters = filterType !== "ALL" || filterStatus !== "ALL" || dateFrom || dateTo;
-
-  async function handleUpdate(
-    id: string,
-    patch: Partial<{ status: string; price: number | null; adminNotes: string | null }>
-  ) {
-    setLoadingId(id);
+  async function handleUpdate(id: string, patch: object): Promise<void> {
     try {
       const res = await fetch(`/api/admin/services/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(patch),
       });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`);
 
-      if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
-        throw new Error(d?.error ?? "Güncelleme başarısız");
-      }
-
-      const updated = await res.json();
-      setRequests((prev) =>
-        prev.map((r) =>
-          r.id === id
-            ? {
-                ...r,
-                status: updated.status ?? r.status,
-                price: updated.price != null ? Number(updated.price) : r.price,
-                adminNotes: updated.adminNotes ?? r.adminNotes,
-                updatedAt: updated.updatedAt ?? r.updatedAt,
-              }
-            : r
-        )
-      );
-
-      if (patch.status)     toast.success("Durum güncellendi — müşteriye bildirim gönderildi.");
-      else if (patch.price != null) toast.success("Fiyat kaydedildi.");
-      else                  toast.success("Not kaydedildi.");
+      setItems(prev => prev.map(r => r.id !== id ? r : {
+        ...r,
+        status:     data.status     ?? r.status,
+        price:      data.price != null ? Number(data.price) : r.price,
+        adminNotes: data.adminNotes !== undefined ? data.adminNotes : r.adminNotes,
+        updatedAt:  data.updatedAt  ?? r.updatedAt,
+      }));
+      toast.success("Kaydedildi.");
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Bilinmeyen hata";
-      toast.error(`Güncelleme başarısız: ${msg}`);
-    } finally {
-      setLoadingId(null);
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.error(`Hata: ${msg}`);
+      throw err; // ServiceCard'da saving state'i sıfırlasın
     }
   }
 
   return (
     <div>
-      {/* Başlık + sayaçlar */}
-      <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
+      {/* Başlık */}
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-black text-white">Servis Talepleri</h1>
           <p className="text-white/40 text-sm mt-0.5">
@@ -421,111 +310,70 @@ export default function AdminServicesClient({ initialRequests }: { initialReques
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Tamamlananları göster/gizle */}
+        <div className="flex gap-2">
           <button
-            type="button"
-            onClick={() => setShowDone((v) => !v)}
-            className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border transition-all ${showDone ? "border-[#00D4AA]/40 bg-[#00D4AA]/10 text-[#00D4AA]" : "border-white/15 bg-white/5 text-white/50 hover:text-white"}`}
+            onClick={() => setShowDone(v => !v)}
+            className={`text-xs px-3 py-1.5 rounded-full border transition-all ${showDone ? "border-[#00D4AA]/40 bg-[#00D4AA]/10 text-[#00D4AA]" : "border-white/15 bg-white/5 text-white/50 hover:text-white"}`}
           >
-            {showDone ? <><Check size={11} /> Tamamlananlar Gösteriliyor</> : <><Clock size={11} /> Sadece Aktifler</>}
+            {showDone ? "Tümü Gösteriliyor" : "Sadece Aktifler"}
           </button>
-
-          {/* Filtrele */}
           <button
-            type="button"
-            onClick={() => setShowFilters((v) => !v)}
-            className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border transition-all ${showFilters || hasActiveFilters ? "border-[#FF6B35]/40 bg-[#FF6B35]/10 text-[#FF6B35]" : "border-white/15 bg-white/5 text-white/50 hover:text-white"}`}
+            onClick={() => setShowFilter(v => !v)}
+            className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border transition-all ${showFilter || hasFilter ? "border-[#FF6B35]/40 bg-[#FF6B35]/10 text-[#FF6B35]" : "border-white/15 bg-white/5 text-white/50 hover:text-white"}`}
           >
-            <Filter size={11} />
-            Filtrele
-            {hasActiveFilters && <span className="w-4 h-4 rounded-full bg-[#FF6B35] text-white text-[10px] flex items-center justify-center">!</span>}
+            <Filter size={11} /> Filtrele {hasFilter && "•"}
           </button>
         </div>
       </div>
 
       {/* Filtre paneli */}
-      {showFilters && (
-        <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-4 mb-5">
-          <div className="flex flex-wrap gap-4 items-end">
-            {/* Tür */}
-            <div className="flex-1 min-w-[140px]">
-              <p className="text-[11px] text-white/40 uppercase tracking-wider mb-1.5">Hizmet Türü</p>
-              <select
-                value={filterType}
-                onChange={(e) => setFilterType(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-white text-sm focus:outline-none focus:border-[#FF6B35]/40"
-              >
-                <option value="ALL" className="bg-[#111]">Tümü</option>
-                {TYPE_OPTIONS.map((t) => (
-                  <option key={t.value} value={t.value} className="bg-[#111]">{t.label}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Durum */}
-            <div className="flex-1 min-w-[140px]">
-              <p className="text-[11px] text-white/40 uppercase tracking-wider mb-1.5">Durum</p>
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-white text-sm focus:outline-none focus:border-[#FF6B35]/40"
-              >
-                <option value="ALL" className="bg-[#111]">Tümü</option>
-                {STATUS_OPTIONS.map((s) => (
-                  <option key={s.value} value={s.value} className="bg-[#111]">{s.label}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Tarih Aralığı */}
-            <div className="flex-1 min-w-[140px]">
-              <p className="text-[11px] text-white/40 uppercase tracking-wider mb-1.5">Başlangıç Tarihi</p>
-              <input
-                type="date"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-white text-sm focus:outline-none focus:border-[#FF6B35]/40 [color-scheme:dark]"
-              />
-            </div>
-            <div className="flex-1 min-w-[140px]">
-              <p className="text-[11px] text-white/40 uppercase tracking-wider mb-1.5">Bitiş Tarihi</p>
-              <input
-                type="date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-white text-sm focus:outline-none focus:border-[#FF6B35]/40 [color-scheme:dark]"
-              />
-            </div>
-
-            {hasActiveFilters && (
-              <button
-                type="button"
-                onClick={clearFilters}
-                className="flex items-center gap-1 text-xs text-white/40 hover:text-white border border-white/10 hover:border-white/30 px-3 py-1.5 rounded-lg transition-colors"
-              >
-                <X size={12} /> Temizle
-              </button>
-            )}
+      {showFilter && (
+        <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-4 mb-4 flex flex-wrap gap-3 items-end">
+          <div>
+            <p className="text-[11px] text-white/30 mb-1">Tür</p>
+            <select value={filterType} onChange={e => setFilterType(e.target.value)}
+              className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-white text-sm focus:outline-none">
+              <option value="ALL" className="bg-[#111]">Tümü</option>
+              {TYPE_LIST.map(t => <option key={t.value} value={t.value} className="bg-[#111]">{t.label}</option>)}
+            </select>
           </div>
+          <div>
+            <p className="text-[11px] text-white/30 mb-1">Durum</p>
+            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
+              className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-white text-sm focus:outline-none">
+              <option value="ALL" className="bg-[#111]">Tümü</option>
+              {STATUS_LIST.map(s => <option key={s.value} value={s.value} className="bg-[#111]">{s.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <p className="text-[11px] text-white/30 mb-1">Başlangıç</p>
+            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+              className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-white text-sm focus:outline-none [color-scheme:dark]" />
+          </div>
+          <div>
+            <p className="text-[11px] text-white/30 mb-1">Bitiş</p>
+            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
+              className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-white text-sm focus:outline-none [color-scheme:dark]" />
+          </div>
+          {hasFilter && (
+            <button onClick={() => { setFilterType("ALL"); setFilterStatus("ALL"); setDateFrom(""); setDateTo(""); }}
+              className="flex items-center gap-1 text-xs text-white/40 hover:text-white border border-white/10 px-3 py-1.5 rounded-lg transition-colors">
+              <X size={12} /> Temizle
+            </button>
+          )}
         </div>
       )}
 
       {/* Liste */}
       {filtered.length === 0 ? (
         <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-12 text-center">
-          <p className="text-white/40 mb-2">Gösterilecek talep yok.</p>
-          {!showDone && <p className="text-white/25 text-sm">Tamamlanmış/iptal talepleri görmek için "Sadece Aktifler" butonuna tıklayın.</p>}
+          <p className="text-white/40">Gösterilecek talep yok.</p>
+          {!showDone && <p className="text-white/25 text-sm mt-1">Tamamlananları görmek için "Sadece Aktifler" butonuna tıklayın.</p>}
         </div>
       ) : (
         <div className="space-y-3">
-          {filtered.map((sr) => (
-            <ServiceCard
-              key={sr.id}
-              sr={sr}
-              loading={loadingId === sr.id}
-              onUpdate={handleUpdate}
-            />
+          {filtered.map(sr => (
+            <ServiceCard key={sr.id} sr={sr} onUpdate={handleUpdate} />
           ))}
         </div>
       )}
