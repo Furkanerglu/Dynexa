@@ -2,16 +2,21 @@ export const dynamic = "force-dynamic";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import Link from "next/link";
 import { formatPrice } from "@/lib/utils";
 import { Package, Wrench, User, ChevronRight, MapPin, Settings } from "lucide-react";
+
+type OrderWithItems = Prisma.OrderGetPayload<{
+  include: { items: { include: { product: true } } };
+}>;
 
 export default async function AccountPage() {
   const session = await auth();
   if (!session) redirect("/login");
 
-  let orders: Awaited<ReturnType<typeof prisma.order.findMany>> = [];
-  let serviceRequests: Awaited<ReturnType<typeof prisma.serviceRequest.findMany>> = [];
+  let orders: OrderWithItems[] = [];
+  let serviceRequests: Prisma.ServiceRequestGetPayload<object>[] = [];
 
   try {
     [orders, serviceRequests] = await Promise.all([

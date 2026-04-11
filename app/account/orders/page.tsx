@@ -2,9 +2,14 @@ export const dynamic = "force-dynamic";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { formatPrice } from "@/lib/utils";
 import Link from "next/link";
 import { ChevronLeft, Package } from "lucide-react";
+
+type OrderWithItems = Prisma.OrderGetPayload<{
+  include: { items: { include: { product: { select: { name: true; images: true } } } } };
+}>;
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   PENDING: { label: "Beklemede", color: "text-yellow-400 bg-yellow-400/10" },
@@ -19,7 +24,7 @@ export default async function OrdersPage() {
   const session = await auth();
   if (!session) redirect("/login");
 
-  let orders: Awaited<ReturnType<typeof prisma.order.findMany>> = [];
+  let orders: OrderWithItems[] = [];
   try {
     orders = await prisma.order.findMany({
       where: { userId: session.user.id },

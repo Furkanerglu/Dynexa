@@ -32,7 +32,7 @@ export default async function ServiceRequestsPage() {
   const session = await auth();
   if (!session) redirect("/login");
 
-  let requests: Awaited<ReturnType<typeof prisma.serviceRequest.findMany>> = [];
+  let requests: import("@prisma/client").ServiceRequest[] = [];
   try {
     requests = await prisma.serviceRequest.findMany({
       where: { userId: session.user.id },
