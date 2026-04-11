@@ -19,11 +19,16 @@ export default async function OrdersPage() {
   const session = await auth();
   if (!session) redirect("/login");
 
-  const orders = await prisma.order.findMany({
-    where: { userId: session.user.id },
-    include: { items: { include: { product: { select: { name: true, images: true } } } } },
-    orderBy: { createdAt: "desc" },
-  });
+  let orders: Awaited<ReturnType<typeof prisma.order.findMany>> = [];
+  try {
+    orders = await prisma.order.findMany({
+      where: { userId: session.user.id },
+      include: { items: { include: { product: { select: { name: true, images: true } } } } },
+      orderBy: { createdAt: "desc" },
+    });
+  } catch {
+    // DB bağlantısı yoksa boş liste
+  }
 
   return (
     <div className="min-h-screen bg-[#020202] pt-24 pb-16">

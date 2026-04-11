@@ -10,19 +10,26 @@ export default async function AccountPage() {
   const session = await auth();
   if (!session) redirect("/login");
 
-  const [orders, serviceRequests] = await Promise.all([
-    prisma.order.findMany({
-      where: { userId: session.user.id },
-      include: { items: { include: { product: true } } },
-      orderBy: { createdAt: "desc" },
-      take: 3,
-    }),
-    prisma.serviceRequest.findMany({
-      where: { userId: session.user.id },
-      orderBy: { createdAt: "desc" },
-      take: 3,
-    }),
-  ]);
+  let orders: Awaited<ReturnType<typeof prisma.order.findMany>> = [];
+  let serviceRequests: Awaited<ReturnType<typeof prisma.serviceRequest.findMany>> = [];
+
+  try {
+    [orders, serviceRequests] = await Promise.all([
+      prisma.order.findMany({
+        where: { userId: session.user.id },
+        include: { items: { include: { product: true } } },
+        orderBy: { createdAt: "desc" },
+        take: 3,
+      }),
+      prisma.serviceRequest.findMany({
+        where: { userId: session.user.id },
+        orderBy: { createdAt: "desc" },
+        take: 3,
+      }),
+    ]);
+  } catch {
+    // DB bağlantısı yoksa boş liste göster
+  }
 
   const ORDER_STATUS_LABELS: Record<string, string> = {
     PENDING: "Beklemede",

@@ -32,10 +32,15 @@ export default async function ServiceRequestsPage() {
   const session = await auth();
   if (!session) redirect("/login");
 
-  const requests = await prisma.serviceRequest.findMany({
-    where: { userId: session.user.id },
-    orderBy: { createdAt: "desc" },
-  });
+  let requests: Awaited<ReturnType<typeof prisma.serviceRequest.findMany>> = [];
+  try {
+    requests = await prisma.serviceRequest.findMany({
+      where: { userId: session.user.id },
+      orderBy: { createdAt: "desc" },
+    });
+  } catch {
+    // DB bağlantısı yoksa boş liste
+  }
 
   return (
     <div className="min-h-screen bg-[#020202] pt-24 pb-16">
