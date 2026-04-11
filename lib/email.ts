@@ -1,6 +1,9 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Lazy init — build sırasında API key yoksa crash vermez
+function getResend() {
+  return new Resend(process.env.RESEND_API_KEY ?? "");
+}
 
 const FROM_EMAIL = "DYNEXA <noreply@dynexa.com>";
 
@@ -325,7 +328,7 @@ export async function sendServiceStatusEmail({
   const typeLabel = SERVICE_TYPE_LABELS[type] ?? type;
 
   try {
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await getResend().emails.send({
       from: FROM_EMAIL,
       to,
       subject: `${typeLabel} Talebiniz Güncellendi: ${statusLabel} — #${requestId.slice(-8).toUpperCase()}`,
@@ -364,7 +367,7 @@ export async function sendOrderStatusEmail({
   const statusLabel = ORDER_STATUS_LABELS[status]?.label ?? status;
 
   try {
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await getResend().emails.send({
       from: FROM_EMAIL,
       to,
       subject: `Siparişiniz Güncellendi: ${statusLabel} — #${orderId.slice(-8).toUpperCase()}`,
