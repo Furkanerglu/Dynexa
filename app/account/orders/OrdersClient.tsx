@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { formatPrice } from "@/lib/utils";
-import { Package, XCircle, ChevronDown, ChevronUp, Zap, Scan, CheckCircle2, ShoppingCart, Clock, Wrench, BoxIcon, Truck, CircleCheck } from "lucide-react";
+import { Package, XCircle, ChevronDown, ChevronUp, Zap, Scan, CheckCircle2, ShoppingCart, Clock, Wrench, BoxIcon, Truck, CircleCheck, ExternalLink } from "lucide-react";
 import Link from "next/link";
 
 // ─── Sabitler ────────────────────────────────────────────────────────────────
@@ -42,7 +42,16 @@ const CANCELLABLE_ORDER = ["PENDING", "CONFIRMED", "PREPARING"];
 // ─── Tipler ──────────────────────────────────────────────────────────────────
 
 type OrderItem = { id: string; quantity: number; price: number; product: { name: string; images: string[] } };
-type Order = { id: string; status: string; paymentStatus: string; totalAmount: number; createdAt: string; updatedAt: string; notes: string | null; items: OrderItem[] };
+type Order = { id: string; status: string; paymentStatus: string; totalAmount: number; createdAt: string; updatedAt: string; notes: string | null; items: OrderItem[]; cargoProvider: string | null; trackingNumber: string | null };
+
+const CARGO_NAMES: Record<string, string> = {
+  YURTICI:  "Yurtiçi Kargo",
+  HEPSIJET: "HepsiJet",
+};
+const CARGO_TRACKING_URLS: Record<string, string> = {
+  YURTICI:  "https://www.yurticikargo.com/tr/online-servisler/gonderi-sorgulama?code=",
+  HEPSIJET: "https://www.hepsijet.com/gonderi-takip?trackingNumber=",
+};
 type SR    = { id: string; type: string; status: string; title: string; description: string; files: string[]; specs: Record<string, unknown> | null; price: number | null; notes: string | null; adminNotes: string | null; createdAt: string; updatedAt: string };
 
 // ─── Ürün Sipariş Kartı ───────────────────────────────────────────────────────
@@ -153,6 +162,27 @@ function OrderCard({ order, onCancel }: { order: Order; onCancel: (id: string) =
             </div>
           </div>
           {order.notes && <div className="p-3 bg-white/5 rounded-xl"><p className="text-[11px] text-white/30 mb-1">Not</p><p className="text-white/60 text-sm">{order.notes}</p></div>}
+
+          {/* Kargo takip bilgisi */}
+          {order.trackingNumber && order.cargoProvider && (
+            <div className="p-3 bg-purple-400/[0.06] border border-purple-400/20 rounded-xl">
+              <p className="text-[11px] text-purple-300/60 uppercase tracking-wide mb-2">Kargo Takip</p>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-white/50 text-xs">{CARGO_NAMES[order.cargoProvider] ?? order.cargoProvider}</p>
+                  <p className="text-purple-200 font-mono text-sm font-semibold">{order.trackingNumber}</p>
+                </div>
+                <a
+                  href={`${CARGO_TRACKING_URLS[order.cargoProvider] ?? "#"}${order.trackingNumber}`}
+                  target="_blank" rel="noreferrer"
+                  className="flex items-center gap-1.5 text-xs bg-purple-400/15 hover:bg-purple-400/25 border border-purple-400/30 text-purple-200 px-3 py-2 rounded-xl transition-colors flex-shrink-0"
+                >
+                  <Truck size={13} /> Kargoyu Takip Et <ExternalLink size={11} />
+                </a>
+              </div>
+            </div>
+          )}
+
           {canCancel && (
             <div className="pt-1">
               {confirm ? (

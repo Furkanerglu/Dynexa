@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { formatPrice } from "@/lib/utils";
-import { ChevronDown, ChevronUp, Check, ShoppingCart, Zap, Scan } from "lucide-react";
+import { ChevronDown, ChevronUp, Check, ShoppingCart, Zap, Scan, Truck, X, Loader2, ExternalLink } from "lucide-react";
 
 // ─── Tipler ──────────────────────────────────────────────────────────────────
 
@@ -14,9 +14,146 @@ type Order = {
   totalAmount: number | string;
   createdAt: string | Date;
   updatedAt: string | Date;
+  cargoProvider:  string | null;
+  trackingNumber: string | null;
   user: { name: string | null; email: string };
   items: { product: { name: string }; quantity: number }[];
 };
+
+// ─── Kargoya Ver Modal ────────────────────────────────────────────────────────
+
+function ShipModal({ order, onClose, onShipped }: {
+  order: Order;
+  onClose: () => void;
+  onShipped: (orderId: string, provider: string, trackingNumber: string) => void;
+}) {
+  const [provider,  setProvider]  = useState<"YURTICI" | "HEPSIJET">("YURTICI");
+  const [weightKg,  setWeightKg]  = useState("1");
+  const [desi,      setDesi]      = useState("");
+  const [manualNo,  setManualNo]  = useState("");
+  const [useManual, setUseManual] = useState(false);
+  const [loading,   setLoading]   = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const body: Record<string, unknown> = {
+        provider,
+        weightKg: parseFloat(weightKg) || 1,
+        desi:     desi ? parseFloat(desi) : undefined,
+      };
+      if (useManual && manualNo.trim()) body.manualTrackingNumber = manualNo.trim();
+
+      const res  = await fetch(`/api/admin/orders/${order.id}/ship`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Kargo oluşturulamadı");
+
+      toast.success(`Kargoya verildi — Takip: ${data.trackingNumber}`);
+      onShipped(order.id, data.provider, data.trackingNumber);
+      onClose();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Hata");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const PROVIDERS = [
+    { value: "YURTICI",  label: "Yurtiçi Kargo",  color: "border-red-500/40 bg-red-500/10 text-red-300" },
+    { value: "HEPSIJET", label: "HepsiJet",        color: "border-orange-500/40 bg-orange-500/10 text-orange-300" },
+  ] as const;
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+      <div className="bg-[#0a0a0a] border border-white/10 rounded-2xl w-full max-w-md">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
+          <div className="flex items-center gap-2">
+            <Truck size={16} className="text-[#FF6B35]" />
+            <h3 className="text-white font-bold">Kargoya Ver</h3>
+          </div>
+          <button onClick={onClose} className="text-white/40 hover:text-white transition-colors">
+            <X size={18} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+          {/* Sipariş özeti */}
+          <div className="bg-white/5 rounded-xl px-4 py-3">
+            <p className="text-white/40 text-xs mb-0.5">Sipariş</p>
+            <p className="text-white text-sm font-medium">#{order.id.slice(-8).toUpperCase()}</p>
+            <p className="text-white/40 text-xs">{order.user.name ?? order.user.email}</p>
+          </div>
+
+          {/* Kargo firması */}
+          <div>
+            <p className="text-white/60 text-sm mb-2">Kargo Firması</p>
+            <div className="grid grid-cols-2 gap-2">
+              {PROVIDERS.map(p => (
+                <button key={p.value} type="button"
+                  onClick={() => setProvider(p.value)}
+                  className={`px-4 py-3 rounded-xl border text-sm font-semibold transition-all ${
+                    provider === p.value ? p.color : "border-white/10 bg-white/5 text-white/40 hover:text-white"
+                  }`}>
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Ağırlık / Desi */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-white/60 text-xs mb-1.5 block">Ağırlık (kg) *</label>
+              <input type="number" step="0.1" min="0.1" value={weightKg} onChange={e => setWeightKg(e.target.value)} required
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#FF6B35]/60" />
+            </div>
+            <div>
+              <label className="text-white/60 text-xs mb-1.5 block">Desi (opsiyonel)</label>
+              <input type="number" step="0.1" min="0" value={desi} onChange={e => setDesi(e.target.value)} placeholder="Boş = ağırlık"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#FF6B35]/60 placeholder:text-white/20" />
+            </div>
+          </div>
+
+          {/* Manuel takip no toggle */}
+          <div>
+            <label className="flex items-center gap-2 cursor-pointer mb-2">
+              <input type="checkbox" checked={useManual} onChange={e => setUseManual(e.target.checked)} className="sr-only peer" />
+              <div className="w-8 h-4 bg-white/10 rounded-full peer-checked:bg-[#FF6B35] transition-colors relative flex-shrink-0">
+                <div className="absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full transition-transform peer-checked:translate-x-4" />
+              </div>
+              <span className="text-white/60 text-xs">Manuel takip numarası gir</span>
+            </label>
+            {useManual && (
+              <input value={manualNo} onChange={e => setManualNo(e.target.value)}
+                placeholder="Takip numarası"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#FF6B35]/60 placeholder:text-white/20" />
+            )}
+            {!useManual && (
+              <p className="text-white/25 text-xs">Kargo API üzerinden otomatik oluşturulacak</p>
+            )}
+          </div>
+
+          <div className="flex gap-3 pt-2 border-t border-white/10">
+            <button type="submit" disabled={loading}
+              className="flex-1 flex items-center justify-center gap-2 bg-[#FF6B35] hover:bg-[#e55a28] disabled:opacity-50 text-white font-semibold text-sm py-3 rounded-xl transition-colors">
+              {loading ? <Loader2 size={15} className="animate-spin" /> : <Truck size={15} />}
+              {loading ? "Kargo oluşturuluyor..." : "Kargoya Ver"}
+            </button>
+            <button type="button" onClick={onClose}
+              className="px-5 py-3 border border-white/10 text-white/50 hover:text-white rounded-xl transition-colors text-sm">
+              İptal
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
 
 type SR = {
   id: string; type: string; status: string; title: string; description: string;
@@ -250,11 +387,18 @@ function SRCard({ sr, onUpdate }: { sr: SR; onUpdate: (id: string, patch: object
 
 // ─── Ürün Siparişleri Tablosu ─────────────────────────────────────────────────
 
-function ProductOrdersTab({ orders, onUpdateStatus }: {
+const CARGO_TRACKING_URLS: Record<string, string> = {
+  YURTICI:  "https://www.yurticikargo.com/tr/online-servisler/gonderi-sorgulama?code=",
+  HEPSIJET: "https://www.hepsijet.com/gonderi-takip?trackingNumber=",
+};
+
+function ProductOrdersTab({ orders, onUpdateStatus, onShipped }: {
   orders: Order[];
   onUpdateStatus: (id: string, status: string) => void;
+  onShipped: (id: string, provider: string, trackingNumber: string) => void;
 }) {
-  const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [loadingId,  setLoadingId]  = useState<string | null>(null);
+  const [shipOrder,  setShipOrder]  = useState<Order | null>(null);
 
   async function updateStatus(orderId: string, newStatus: string) {
     setLoadingId(orderId);
@@ -280,54 +424,87 @@ function ProductOrdersTab({ orders, onUpdateStatus }: {
   );
 
   return (
-    <div className="bg-white/[0.03] border border-white/10 rounded-2xl overflow-visible">
-      <table className="w-full">
-        <thead>
-          <tr className="border-b border-white/10">
-            <th className="text-left px-4 py-3 text-white/40 text-xs font-medium">Sipariş No</th>
-            <th className="text-left px-4 py-3 text-white/40 text-xs font-medium">Müşteri</th>
-            <th className="text-left px-4 py-3 text-white/40 text-xs font-medium">Ürünler</th>
-            <th className="text-left px-4 py-3 text-white/40 text-xs font-medium">Tutar</th>
-            <th className="text-left px-4 py-3 text-white/40 text-xs font-medium">Ödeme</th>
-            <th className="text-left px-4 py-3 text-white/40 text-xs font-medium">Durum</th>
-            <th className="text-left px-4 py-3 text-white/40 text-xs font-medium">Tarih</th>
-          </tr>
-        </thead>
-        <tbody>
-          {orders.map(order => (
-            <tr key={order.id} className="border-b border-white/5 last:border-0 hover:bg-white/[0.02] transition-colors">
-              <td className="px-4 py-3 text-white/70 text-sm font-mono">#{order.id.slice(-8).toUpperCase()}</td>
-              <td className="px-4 py-3">
-                <p className="text-white text-sm">{order.user.name ?? "—"}</p>
-                <p className="text-white/30 text-xs">{order.user.email}</p>
-              </td>
-              <td className="px-4 py-3 max-w-[200px]">
-                <p className="text-white/60 text-xs truncate">
-                  {order.items.map(i => `${i.product.name} ×${i.quantity}`).join(", ")}
-                </p>
-              </td>
-              <td className="px-4 py-3 text-white text-sm font-medium whitespace-nowrap">{formatPrice(Number(order.totalAmount))}</td>
-              <td className="px-4 py-3">
-                <span className={`text-xs px-2 py-0.5 rounded-full ${
-                  order.paymentStatus === "PAID"     ? "bg-[#00D4AA]/10 text-[#00D4AA]" :
-                  order.paymentStatus === "FAILED"   ? "bg-red-500/10 text-red-400"     :
-                  order.paymentStatus === "REFUNDED" ? "bg-blue-500/10 text-blue-400"   :
-                                                       "bg-white/10 text-white/40"
-                }`}>
-                  {order.paymentStatus === "PAID" ? "Ödendi" : order.paymentStatus === "FAILED" ? "Başarısız" : order.paymentStatus === "REFUNDED" ? "İade" : "Bekliyor"}
-                </span>
-              </td>
-              <td className="px-4 py-3">
-                <OrderStatusDropdown orderId={order.id} currentStatus={order.status} loading={loadingId === order.id} onUpdate={updateStatus} />
-              </td>
-              <td className="px-4 py-3 text-white/40 text-xs whitespace-nowrap">
-                {new Date(order.createdAt).toLocaleDateString("tr-TR")}
-              </td>
+    <>
+      {shipOrder && (
+        <ShipModal
+          order={shipOrder}
+          onClose={() => setShipOrder(null)}
+          onShipped={(id, prov, tn) => { onShipped(id, prov, tn); setShipOrder(null); }}
+        />
+      )}
+      <div className="bg-white/[0.03] border border-white/10 rounded-2xl overflow-visible">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-white/10">
+              <th className="text-left px-4 py-3 text-white/40 text-xs font-medium">Sipariş No</th>
+              <th className="text-left px-4 py-3 text-white/40 text-xs font-medium">Müşteri</th>
+              <th className="text-left px-4 py-3 text-white/40 text-xs font-medium">Ürünler</th>
+              <th className="text-left px-4 py-3 text-white/40 text-xs font-medium">Tutar</th>
+              <th className="text-left px-4 py-3 text-white/40 text-xs font-medium">Ödeme</th>
+              <th className="text-left px-4 py-3 text-white/40 text-xs font-medium">Durum</th>
+              <th className="text-left px-4 py-3 text-white/40 text-xs font-medium">Kargo</th>
+              <th className="text-left px-4 py-3 text-white/40 text-xs font-medium">Tarih</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {orders.map(order => (
+              <tr key={order.id} className="border-b border-white/5 last:border-0 hover:bg-white/[0.02] transition-colors">
+                <td className="px-4 py-3 text-white/70 text-sm font-mono">#{order.id.slice(-8).toUpperCase()}</td>
+                <td className="px-4 py-3">
+                  <p className="text-white text-sm">{order.user.name ?? "—"}</p>
+                  <p className="text-white/30 text-xs">{order.user.email}</p>
+                </td>
+                <td className="px-4 py-3 max-w-[200px]">
+                  <p className="text-white/60 text-xs truncate">
+                    {order.items.map(i => `${i.product.name} ×${i.quantity}`).join(", ")}
+                  </p>
+                </td>
+                <td className="px-4 py-3 text-white text-sm font-medium whitespace-nowrap">{formatPrice(Number(order.totalAmount))}</td>
+                <td className="px-4 py-3">
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${
+                    order.paymentStatus === "PAID"     ? "bg-[#00D4AA]/10 text-[#00D4AA]" :
+                    order.paymentStatus === "FAILED"   ? "bg-red-500/10 text-red-400"     :
+                    order.paymentStatus === "REFUNDED" ? "bg-blue-500/10 text-blue-400"   :
+                                                         "bg-white/10 text-white/40"
+                  }`}>
+                    {order.paymentStatus === "PAID" ? "Ödendi" : order.paymentStatus === "FAILED" ? "Başarısız" : order.paymentStatus === "REFUNDED" ? "İade" : "Bekliyor"}
+                  </span>
+                </td>
+                <td className="px-4 py-3">
+                  <OrderStatusDropdown orderId={order.id} currentStatus={order.status} loading={loadingId === order.id} onUpdate={updateStatus} />
+                </td>
+                {/* Kargo sütunu */}
+                <td className="px-4 py-3">
+                  {order.trackingNumber ? (
+                    <a
+                      href={`${CARGO_TRACKING_URLS[order.cargoProvider ?? "YURTICI"] ?? "#"}${order.trackingNumber}`}
+                      target="_blank" rel="noreferrer"
+                      className="flex items-center gap-1 text-xs text-purple-300 hover:text-purple-200 bg-purple-400/10 border border-purple-400/20 px-2 py-1 rounded-lg transition-colors whitespace-nowrap"
+                    >
+                      <Truck size={11} />
+                      {order.trackingNumber.slice(-8)}
+                      <ExternalLink size={9} />
+                    </a>
+                  ) : ["PREPARING", "CONFIRMED"].includes(order.status) ? (
+                    <button
+                      onClick={() => setShipOrder(order)}
+                      className="flex items-center gap-1 text-xs text-[#FF6B35] bg-[#FF6B35]/10 border border-[#FF6B35]/20 hover:bg-[#FF6B35]/20 px-2.5 py-1 rounded-lg transition-colors whitespace-nowrap"
+                    >
+                      <Truck size={11} /> Kargoya Ver
+                    </button>
+                  ) : (
+                    <span className="text-white/20 text-xs">—</span>
+                  )}
+                </td>
+                <td className="px-4 py-3 text-white/40 text-xs whitespace-nowrap">
+                  {new Date(order.createdAt).toLocaleDateString("tr-TR")}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }
 
@@ -400,6 +577,12 @@ export default function AdminOrdersClient({
     setOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o));
   }
 
+  function handleShipped(id: string, provider: string, trackingNumber: string) {
+    setOrders(prev => prev.map(o =>
+      o.id === id ? { ...o, status: "SHIPPED", cargoProvider: provider, trackingNumber } : o
+    ));
+  }
+
   async function handleSRUpdate(id: string, patch: object, setter: typeof setPrint): Promise<void> {
     try {
       const res = await fetch(`/api/admin/services/${id}`, {
@@ -456,7 +639,7 @@ export default function AdminOrdersClient({
         })}
       </div>
 
-      {tab === "orders" && <ProductOrdersTab orders={orders} onUpdateStatus={updateOrderStatus} />}
+      {tab === "orders" && <ProductOrdersTab orders={orders} onUpdateStatus={updateOrderStatus} onShipped={handleShipped} />}
       {tab === "print"  && <SRTab items={print} onUpdate={(id, p) => handleSRUpdate(id, p, setPrint)} />}
       {tab === "scan"   && <SRTab items={scan}  onUpdate={(id, p) => handleSRUpdate(id, p, setScan)}  />}
     </div>

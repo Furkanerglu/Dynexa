@@ -33,10 +33,12 @@ export default async function OrdersPage() {
 
   const serializedOrders = orders.map((o) => ({
     ...o,
-    totalAmount: Number(o.totalAmount),
-    createdAt:   o.createdAt.toISOString(),
-    updatedAt:   o.updatedAt.toISOString(),
-    items: o.items.map((i) => ({ ...i, price: Number(i.price) })),
+    totalAmount:    Number(o.totalAmount),
+    createdAt:      o.createdAt.toISOString(),
+    updatedAt:      o.updatedAt.toISOString(),
+    items:          o.items.map((i) => ({ ...i, price: Number(i.price) })),
+    cargoProvider:  o.cargoProvider  ?? null,
+    trackingNumber: o.trackingNumber ?? null,
   }));
 
   const serializeSR = (r: typeof printReqs[0]) => ({

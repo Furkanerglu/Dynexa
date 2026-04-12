@@ -61,6 +61,12 @@ model Address {
   district  String
   line      String
   isDefault Boolean @default(false)
+  orders    Order[]
+}
+
+enum CargoProvider {
+  YURTICI
+  HEPSIJET
 }
 
 model Category {
@@ -106,18 +112,22 @@ model CartItem {
 }
 
 model Order {
-  id            String        @id @default(cuid())
-  userId        String
-  user          User          @relation(fields: [userId], references: [id])
-  items         OrderItem[]
-  status        OrderStatus   @default(PENDING)
-  addressId     String
-  totalAmount   Decimal       @db.Decimal(10, 2)
-  paymentId     String?
-  paymentStatus PaymentStatus @default(WAITING)
-  notes         String?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  id             String         @id @default(cuid())
+  userId         String
+  user           User           @relation(fields: [userId], references: [id])
+  items          OrderItem[]
+  status         OrderStatus    @default(PENDING)
+  addressId      String
+  address        Address        @relation(fields: [addressId], references: [id])
+  totalAmount    Decimal        @db.Decimal(10, 2)
+  paymentId      String?
+  paymentStatus  PaymentStatus  @default(WAITING)
+  notes          String?
+  cargoProvider  CargoProvider?
+  trackingNumber String?
+  cargoCreatedAt DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 }
 
 enum OrderStatus {
