@@ -13,7 +13,7 @@ export default async function ServiceRequestsPage() {
   let requests: import("@prisma/client").ServiceRequest[] = [];
   try {
     requests = await prisma.serviceRequest.findMany({
-      where: { userId: session.user.id },
+      where:   { userId: session.user.id, type: "TECHNICAL" },
       orderBy: { createdAt: "desc" },
     });
   } catch {
@@ -22,10 +22,10 @@ export default async function ServiceRequestsPage() {
 
   const serialized = requests.map((r) => ({
     ...r,
-    price: r.price !== null ? Number(r.price) : null,
+    price:     r.price !== null ? Number(r.price) : null,
     createdAt: r.createdAt.toISOString(),
     updatedAt: r.updatedAt.toISOString(),
-    specs: r.specs as Record<string, unknown> | null,
+    specs:     r.specs as Record<string, unknown> | null,
   }));
 
   return (
@@ -37,7 +37,7 @@ export default async function ServiceRequestsPage() {
           </Link>
           <h1 className="text-2xl font-bold text-white flex items-center gap-2">
             <Wrench size={22} className="text-[#FF6B35]" />
-            Servis Taleplerim
+            Teknik Servis Taleplerim
           </h1>
         </div>
 

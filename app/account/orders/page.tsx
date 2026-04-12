@@ -15,27 +15,37 @@ export default async function OrdersPage() {
   const session = await auth();
   if (!session) redirect("/login");
 
-  let orders: OrderWithItems[] = [];
-  try {
-    orders = await prisma.order.findMany({
-      where: { userId: session.user.id },
+  const [orders, printReqs, scanReqs] = await Promise.all([
+    prisma.order.findMany({
+      where:   { userId: session.user.id },
       include: { items: { include: { product: { select: { name: true, images: true } } } } },
       orderBy: { createdAt: "desc" },
-    });
-  } catch {
-    // DB bağlantısı yoksa boş liste
-  }
+    }).catch(() => [] as OrderWithItems[]),
+    prisma.serviceRequest.findMany({
+      where:   { userId: session.user.id, type: "PRINT" },
+      orderBy: { createdAt: "desc" },
+    }).catch(() => []),
+    prisma.serviceRequest.findMany({
+      where:   { userId: session.user.id, type: "SCANNING" },
+      orderBy: { createdAt: "desc" },
+    }).catch(() => []),
+  ]);
 
-  const serialized = orders.map((o) => ({
+  const serializedOrders = orders.map((o) => ({
     ...o,
     totalAmount: Number(o.totalAmount),
     createdAt:   o.createdAt.toISOString(),
     updatedAt:   o.updatedAt.toISOString(),
-    items: o.items.map((i) => ({
-      ...i,
-      price: Number(i.price),
-    })),
+    items: o.items.map((i) => ({ ...i, price: Number(i.price) })),
   }));
+
+  const serializeSR = (r: typeof printReqs[0]) => ({
+    ...r,
+    price:     r.price != null ? Number(r.price) : null,
+    specs:     (r.specs as Record<string, unknown>) ?? null,
+    createdAt: r.createdAt.toISOString(),
+    updatedAt: r.updatedAt.toISOString(),
+  });
 
   return (
     <div className="min-h-screen bg-[#020202] pt-24 pb-16">
@@ -50,7 +60,11 @@ export default async function OrdersPage() {
           </h1>
         </div>
 
-        <OrdersClient initialOrders={serialized} />
+        <OrdersClient
+          initialOrders={serializedOrders}
+          initialPrint={printReqs.map(serializeSR)}
+          initialScan={scanReqs.map(serializeSR)}
+        />
       </div>
     </div>
   );
