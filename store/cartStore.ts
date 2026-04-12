@@ -13,6 +13,7 @@ export interface CartItem {
 interface CartStore {
   items: CartItem[];
   isOpen: boolean;
+  userId: string | null;   // hangi kullanıcının sepeti
   addItem: (item: Omit<CartItem, "quantity">) => void;
   removeItem: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
@@ -22,6 +23,8 @@ interface CartStore {
   toggleCart: () => void;
   totalItems: () => number;
   totalPrice: () => number;
+  /** Session değişince çağır — farklı kullanıcıysa sepeti sıfırlar */
+  syncUser: (id: string | null) => void;
 }
 
 export const useCartStore = create<CartStore>()(
@@ -29,6 +32,14 @@ export const useCartStore = create<CartStore>()(
     (set, get) => ({
       items: [],
       isOpen: false,
+      userId: null,
+
+      syncUser: (id) => {
+        if (get().userId !== id) {
+          // Farklı kullanıcı veya çıkış → sepeti temizle
+          set({ items: [], isOpen: false, userId: id });
+        }
+      },
 
       addItem: (item) => {
         const existing = get().items.find((i) => i.id === item.id);
@@ -60,18 +71,15 @@ export const useCartStore = create<CartStore>()(
         });
       },
 
-      clearCart: () => set({ items: [] }),
+      clearCart: () => set({ items: [], userId: null }),
 
-      openCart: () => set({ isOpen: true }),
-      closeCart: () => set({ isOpen: false }),
+      openCart:   () => set({ isOpen: true }),
+      closeCart:  () => set({ isOpen: false }),
       toggleCart: () => set({ isOpen: !get().isOpen }),
 
       totalItems: () => get().items.reduce((sum, i) => sum + i.quantity, 0),
-      totalPrice: () =>
-        get().items.reduce((sum, i) => sum + i.price * i.quantity, 0),
+      totalPrice: () => get().items.reduce((sum, i) => sum + i.price * i.quantity, 0),
     }),
-    {
-      name: "dynexa-cart",
-    }
+    { name: "dynexa-cart" }
   )
 );

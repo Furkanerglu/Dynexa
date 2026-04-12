@@ -25,10 +25,16 @@ export function Navbar() {
   const { data: session } = useSession();
   const totalItems = useCartStore((s) => s.totalItems);
   const toggleCart = useCartStore((s) => s.toggleCart);
+  const syncUser   = useCartStore((s) => s.syncUser);
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [servicesOpen, setServicesOpen] = useState(false);
+
+  // Session değişince sepeti senkronize et (çıkış/giriş/farklı kullanıcı)
+  useEffect(() => {
+    syncUser(session?.user?.id ?? null);
+  }, [session?.user?.id, syncUser]);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
