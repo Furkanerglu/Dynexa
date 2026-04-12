@@ -48,13 +48,15 @@ export function ProductCard({
     <Link href={`/shop/${slug}`} className="group block">
       <div className="bg-[#0a0a0a] border border-white/5 rounded-2xl overflow-hidden transition-all duration-300 group-hover:border-[#FF6B35]/40 group-hover:shadow-[0_0_30px_rgba(255,107,53,0.1)]">
         {/* Image */}
-        <div className="relative h-48 bg-white/5 overflow-hidden">
+        <div className="relative h-52 overflow-hidden bg-white rounded-t-2xl">
           <Image
             src={image || "/images/placeholder.jpg"}
             alt={name}
             fill
             className="object-contain p-4 transition-transform duration-500 group-hover:scale-105"
           />
+          {/* Kartın koyu rengiyle yumuşak geçiş */}
+          <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-[#0a0a0a] to-transparent pointer-events-none" />
           {stock === 0 && (
             <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
               <span className="text-white/60 text-sm font-medium">Stokta Yok</span>
