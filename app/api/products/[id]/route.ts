@@ -71,15 +71,30 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session || session.user.role !== "ADMIN") {
-    return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
-  }
+  try {
+    const session = await auth();
+    if (!session || session.user.role !== "ADMIN") {
+      return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
+    }
 
-  const { id } = await params;
-  // Sepet itemlarını önce sil
-  await prisma.cartItem.deleteMany({ where: { productId: id } });
-  await prisma.review.deleteMany({ where: { productId: id } });
-  await prisma.product.delete({ where: { id } });
-  return NextResponse.json({ success: true });
+    const { id } = await params;
+
+    // Ürünün siparişe bağlı orderItem'ı var mı kontrol et
+    const orderItemCount = await prisma.orderItem.count({ where: { productId: id } });
+
+    if (orderItemCount > 0) {
+      // Sipariş geçmişini korumak için soft delete
+      await prisma.product.update({ where: { id }, data: { isActive: false } });
+      return NextResponse.json({ success: true, softDeleted: true });
+    }
+
+    // Siparişi olmayan ürün — tamamen sil
+    await prisma.cartItem.deleteMany({ where: { productId: id } });
+    await prisma.review.deleteMany({ where: { productId: id } });
+    await prisma.product.delete({ where: { id } });
+    return NextResponse.json({ success: true, softDeleted: false });
+  } catch (err) {
+    console.error("DELETE /api/products/[id] error:", err);
+    return NextResponse.json({ error: "Silme işlemi başarısız" }, { status: 500 });
+  }
 }

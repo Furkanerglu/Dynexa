@@ -157,11 +157,19 @@ export default function AdminProductsClient({ initialProducts, categories }: Pro
     setDeletingId(id);
     try {
       const res = await fetch(`/api/products/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error();
-      setProducts((prev) => prev.filter((p) => p.id !== id));
-      toast.success("Ürün silindi");
-    } catch {
-      toast.error("Silme başarısız");
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Silme başarısız");
+
+      if (json.softDeleted) {
+        // Siparişe bağlı ürün — pasife alındı, listeden kaldır
+        setProducts((prev) => prev.filter((p) => p.id !== id));
+        toast.info("Ürün siparişlerde kullanıldığı için pasife alındı");
+      } else {
+        setProducts((prev) => prev.filter((p) => p.id !== id));
+        toast.success("Ürün silindi");
+      }
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Silme başarısız");
     } finally {
       setDeletingId(null);
     }
