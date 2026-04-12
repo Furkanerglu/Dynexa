@@ -154,7 +154,7 @@ function ServiceCard({ sr, onUpdate }: { sr: SR; onUpdate: (id: string, patch: o
                 {sr.files.map((url, i) => {
                   const filename = decodeURIComponent(url.split("/").pop()?.split("?")[0] ?? `dosya-${i + 1}`);
                   return (
-                  <a key={i} href={url} target="_blank" rel="noreferrer"
+                  <a key={i} href={url} download={filename}
                     className="flex items-center gap-1.5 text-xs text-[#FF6B35] bg-[#FF6B35]/10 border border-[#FF6B35]/20 px-2.5 py-1.5 rounded-lg hover:bg-[#FF6B35]/20 transition-colors max-w-[200px]">
                     <span className="truncate">{filename}</span>
                   </a>

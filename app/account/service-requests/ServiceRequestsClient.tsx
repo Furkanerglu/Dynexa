@@ -122,12 +122,15 @@ function ServiceCard({ sr, onRespond }: {
             <div>
               <p className="text-[11px] text-white/30 uppercase tracking-wide mb-2">Dosyalar</p>
               <div className="flex flex-wrap gap-2">
-                {sr.files.map((url, i) => (
-                  <a key={i} href={url} target="_blank" rel="noreferrer"
-                    className="text-xs text-[#FF6B35] bg-[#FF6B35]/10 border border-[#FF6B35]/20 px-2.5 py-1 rounded-lg hover:underline">
-                    Dosya {i + 1}
-                  </a>
-                ))}
+                {sr.files.map((url, i) => {
+                  const filename = decodeURIComponent(url.split("/").pop()?.split("?")[0] ?? `dosya-${i + 1}`);
+                  return (
+                    <a key={i} href={url} download={filename}
+                      className="flex items-center gap-1.5 text-xs text-[#FF6B35] bg-[#FF6B35]/10 border border-[#FF6B35]/20 px-2.5 py-1.5 rounded-lg hover:bg-[#FF6B35]/20 transition-colors max-w-[200px]">
+                      <span className="truncate">{filename}</span>
+                    </a>
+                  );
+                })}
               </div>
             </div>
           )}
