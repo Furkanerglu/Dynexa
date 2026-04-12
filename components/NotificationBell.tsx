@@ -68,13 +68,14 @@ export function NotificationBell() {
   async function markAllRead() {
     setLoading(true);
     await fetch("/api/notifications", { method: "PATCH" });
-    setNotifs((prev) => prev.map((n) => ({ ...n, read: true })));
+    setNotifs([]);
     setLoading(false);
   }
 
   async function markRead(id: string) {
     await fetch(`/api/notifications/${id}`, { method: "PATCH" });
-    setNotifs((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+    // Okundu işaretlendikten sonra listeden kaldır
+    setNotifs((prev) => prev.filter((n) => n.id !== id));
   }
 
   function handleOpen() {

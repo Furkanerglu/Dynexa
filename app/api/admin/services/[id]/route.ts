@@ -49,7 +49,12 @@ export async function PATCH(
     // Durum değiştiyse müşteriye bildirim gönder
     const newStatus = data.status;
     if (newStatus && newStatus !== existing.status) {
-      await notifyServiceStatus(params.id, existing.userId, newStatus).catch(console.error);
+      await notifyServiceStatus(
+        params.id,
+        existing.userId,
+        newStatus,
+        existing.type as "PRINT" | "SCANNING" | "TECHNICAL"
+      ).catch(console.error);
     }
 
     return NextResponse.json(updated);

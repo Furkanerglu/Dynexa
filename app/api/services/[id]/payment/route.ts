@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { notifyServiceStatus } from "@/lib/notifications";
 
 const schema = z.object({
   cardHolder: z.string().min(3),
@@ -78,6 +79,13 @@ export async function POST(
       where: { id: params.id },
       data:  { status: "CONFIRMED", adminNotes: service.adminNotes ? `${service.adminNotes} | Ödeme: ${paymentId}` : `Ödeme: ${paymentId}` },
     });
+
+    await notifyServiceStatus(
+      params.id,
+      service.userId,
+      "CONFIRMED",
+      service.type as "PRINT" | "SCANNING" | "TECHNICAL"
+    ).catch(console.error);
 
     return NextResponse.json(updated);
   } catch (error) {

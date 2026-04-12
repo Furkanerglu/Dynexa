@@ -45,25 +45,42 @@ export async function notifyOrderStatus(orderId: string, userId: string, status:
 
 // ─── Servis talebi durum mesajları ───────────────────────────────────────────
 
-const SERVICE_STATUS_MSG: Record<string, { title: string; body: string }> = {
-  PENDING:     { title: "Talebiniz Alındı",              body: "Servis talebiniz alındı, incelenecek." },
-  REVIEWING:   { title: "Talebiniz İnceleniyor",         body: "Talebinizi inceliyoruz, kısa sürede fiyat teklifi sunacağız." },
-  QUOTED:      { title: "Fiyat Teklifi Hazır!",          body: "Talebiniz için fiyat teklifi hazır. Onaylamak için tıklayın." },
-  CONFIRMED:   { title: "Servis Talebiniz Onaylandı",    body: "Fiyat teklifini onayladınız. Talebiniz işleme alınacak." },
-  IN_PROGRESS: { title: "Servis İşlemde",                body: "Talebiniz aktif olarak işleniyor." },
-  COMPLETED:   { title: "Servis Tamamlandı",             body: "Servis talebiniz başarıyla tamamlandı!" },
-  CANCELLED:   { title: "Servis Talebi İptal",           body: "Servis talebiniz iptal edildi." },
+type ServiceType = "PRINT" | "SCANNING" | "TECHNICAL";
+
+const SERVICE_TYPE_LABEL: Record<ServiceType, string> = {
+  PRINT:     "3D Baskı",
+  SCANNING:  "3D Tarama",
+  TECHNICAL: "Teknik Servis",
 };
 
-export async function notifyServiceStatus(serviceId: string, userId: string, status: string) {
-  const msg = SERVICE_STATUS_MSG[status];
+function getServiceStatusMsg(status: string, serviceType?: ServiceType) {
+  const label = serviceType ? SERVICE_TYPE_LABEL[serviceType] : "Servis";
+  const msgs: Record<string, { title: string; body: string }> = {
+    PENDING:     { title: `${label} Talebiniz Alındı`,       body: `${label} talebiniz alındı, incelenecek.` },
+    REVIEWING:   { title: `${label} Talebiniz İnceleniyor`,  body: `Talebinizi inceliyoruz, kısa sürede fiyat teklifi sunacağız.` },
+    QUOTED:      { title: "Fiyat Teklifi Hazır!",            body: `${label} talebiniz için fiyat teklifi hazır. Ödeme yapmak için tıklayın.` },
+    CONFIRMED:   { title: `${label} Talebiniz Onaylandı`,    body: "Ödemeniz alındı, talebiniz işleme alındı." },
+    IN_PROGRESS: { title: `${label} İşlemde`,                body: "Talebiniz aktif olarak işleniyor." },
+    COMPLETED:   { title: `${label} Tamamlandı`,             body: `${label} talebiniz başarıyla tamamlandı!` },
+    CANCELLED:   { title: `${label} Talebi İptal`,           body: "Servis talebiniz iptal edildi." },
+  };
+  return msgs[status] ?? null;
+}
+
+export async function notifyServiceStatus(
+  serviceId: string,
+  userId: string,
+  status: string,
+  serviceType?: ServiceType
+) {
+  const msg = getServiceStatusMsg(status, serviceType);
   if (!msg) return;
   return createNotification({
     userId,
     title: msg.title,
-    body: msg.body,
-    type: "SERVICE_STATUS",
-    link: `/account/service-requests`,
+    body:  msg.body,
+    type:  "SERVICE_STATUS",
+    link:  `/account/service-requests`,
   });
 }
 

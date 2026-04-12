@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { notifyServiceStatus } from "@/lib/notifications";
 
 const schema = z.object({
   action: z.enum(["approve", "reject"]),
@@ -47,6 +48,13 @@ export async function POST(
       where: { id: params.id },
       data: { status: newStatus },
     });
+
+    await notifyServiceStatus(
+      params.id,
+      existing.userId,
+      newStatus,
+      existing.type as "PRINT" | "SCANNING" | "TECHNICAL"
+    ).catch(console.error);
 
     return NextResponse.json(updated);
   } catch (error) {
