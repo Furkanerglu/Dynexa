@@ -8,19 +8,23 @@ const schema = z.object({
   items: z.array(
     z.object({
       productId: z.string(),
-      quantity: z.number().min(1),
-      price: z.number().positive(),
+      quantity:  z.number().min(1),
+      price:     z.number().positive(),
     })
   ),
+  // Kayıtlı adres ID'si VEYA yeni adres objesi
+  addressId: z.string().optional(),
   address: z.object({
-    title: z.string(),
+    title:    z.string(),
     fullName: z.string(),
-    phone: z.string(),
-    city: z.string(),
+    phone:    z.string(),
+    city:     z.string(),
     district: z.string(),
-    line: z.string(),
-  }),
+    line:     z.string(),
+  }).optional(),
   totalAmount: z.number().positive(),
+}).refine((d) => d.addressId || d.address, {
+  message: "addressId veya address gereklidir",
 });
 
 export async function GET() {
@@ -46,19 +50,27 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const data = schema.parse(body);
 
-    // Adresi kaydet
-    const address = await prisma.address.create({
-      data: {
-        userId: session.user.id,
-        ...data.address,
-      },
-    });
+    // Kayıtlı adres kullan veya yeni adres oluştur
+    let addressId: string;
+    if (data.addressId) {
+      // Adresin bu kullanıcıya ait olduğunu doğrula
+      const existing = await prisma.address.findFirst({
+        where: { id: data.addressId, userId: session.user.id },
+      });
+      if (!existing) return NextResponse.json({ error: "Adres bulunamadı" }, { status: 404 });
+      addressId = existing.id;
+    } else {
+      const created = await prisma.address.create({
+        data: { userId: session.user.id, ...data.address! },
+      });
+      addressId = created.id;
+    }
 
     // Siparişi oluştur
     const order = await prisma.order.create({
       data: {
         userId: session.user.id,
-        addressId: address.id,
+        addressId,
         totalAmount: data.totalAmount,
         paymentStatus: "PAID",
         status: "CONFIRMED",
