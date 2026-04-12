@@ -6,6 +6,35 @@ const prisma = new PrismaClient();
 async function main() {
   console.log("Seed başlatılıyor...");
 
+  // ─── Eski PARTS ürün + kategorileri temizle ───────────────────────
+  const OLD_PART_SLUGS = [
+    "hotend-nozzle", "ekstruder", "motor-ray", "yatak-cerceve",
+    // ürün slug'ları
+    "bambu-lab-hardened-steel-nozzle-04", "e3d-v6-all-metal-hotend-kit",
+    "volcano-nozzle-set", "bmg-dual-drive-ekstruder", "orbiter-ekstruder-v20",
+    "creality-ender3-ekstruder-seti", "nema17-stepper-motor-42-40",
+    "gates-gt2-kayis-seti", "mgn12h-lineer-ray-300mm",
+    "ender3-cam-yatak-235x235", "pei-manyetik-yatak-310x310",
+    "v-slot-profil-2020-1000mm",
+  ];
+
+  // Önce OrderItem'ları sil (FK kısıtlaması)
+  const oldProds = await prisma.product.findMany({
+    where: { slug: { in: OLD_PART_SLUGS } },
+    select: { id: true },
+  });
+  const oldIds = oldProds.map((p) => p.id);
+  if (oldIds.length > 0) {
+    await prisma.orderItem.deleteMany({ where: { productId: { in: oldIds } } });
+    await prisma.cartItem.deleteMany({ where: { productId: { in: oldIds } } });
+    await prisma.product.deleteMany({ where: { id: { in: oldIds } } });
+  }
+  // Eski kategorileri sil
+  await prisma.category.deleteMany({
+    where: { slug: { in: ["hotend-nozzle", "ekstruder", "motor-ray", "yatak-cerceve"] } },
+  });
+  console.log("  ✓ Eski parça verileri temizlendi");
+
   // ─── Kullanıcılar ─────────────────────────────────────────────────
   const adminPassword = await bcrypt.hash("Admin123!", 12);
   const admin = await prisma.user.upsert({
