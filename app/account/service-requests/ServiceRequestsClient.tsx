@@ -2,21 +2,41 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Wrench, CheckCircle2, XCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { Wrench, CheckCircle2, XCircle, ChevronDown, ChevronUp, CreditCard } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { formatPrice } from "@/lib/utils";
 
 // ─── Sabitler ────────────────────────────────────────────────────────────────
 
-const STATUS: Record<string, { label: string; color: string }> = {
-  PENDING:     { label: "Beklemede",     color: "text-yellow-400 bg-yellow-400/10 border-yellow-400/30" },
-  REVIEWING:   { label: "İnceleniyor",   color: "text-blue-400 bg-blue-400/10 border-blue-400/30" },
-  QUOTED:      { label: "Fiyat Verildi", color: "text-purple-400 bg-purple-400/10 border-purple-400/30" },
-  CONFIRMED:   { label: "Onaylandı",     color: "text-[#FF6B35] bg-[#FF6B35]/10 border-[#FF6B35]/30" },
-  IN_PROGRESS: { label: "İşlemde",       color: "text-orange-400 bg-orange-400/10 border-orange-400/30" },
-  COMPLETED:   { label: "Tamamlandı",    color: "text-[#00D4AA] bg-[#00D4AA]/10 border-[#00D4AA]/30" },
-  CANCELLED:   { label: "İptal",         color: "text-red-400 bg-red-400/10 border-red-400/30" },
+// Temel durum renkleri — label tip bazında override edilir
+const STATUS_COLORS: Record<string, string> = {
+  PENDING:     "text-yellow-400 bg-yellow-400/10 border-yellow-400/30",
+  REVIEWING:   "text-blue-400 bg-blue-400/10 border-blue-400/30",
+  QUOTED:      "text-purple-400 bg-purple-400/10 border-purple-400/30",
+  CONFIRMED:   "text-[#FF6B35] bg-[#FF6B35]/10 border-[#FF6B35]/30",
+  IN_PROGRESS: "text-orange-400 bg-orange-400/10 border-orange-400/30",
+  COMPLETED:   "text-[#00D4AA] bg-[#00D4AA]/10 border-[#00D4AA]/30",
+  CANCELLED:   "text-red-400 bg-red-400/10 border-red-400/30",
 };
+
+// Durum etiketini talep tipine göre döndürür
+function getStatusLabel(status: string, type: string): string {
+  const isPriceService = type === "PRINT" || type === "SCANNING";
+  if (status === "PENDING" && isPriceService) return "Fiyat Teklifi Hazırlanıyor";
+  if (status === "REVIEWING" && isPriceService) return "Fiyat Teklifi Hazırlanıyor";
+  if (status === "QUOTED" && isPriceService) return "Fiyat Teklifi Verildi";
+  const base: Record<string, string> = {
+    PENDING:     "Beklemede",
+    REVIEWING:   "İnceleniyor",
+    QUOTED:      "Fiyat Verildi",
+    CONFIRMED:   "Onaylandı",
+    IN_PROGRESS: "İşlemde",
+    COMPLETED:   "Tamamlandı",
+    CANCELLED:   "İptal",
+  };
+  return base[status] ?? status;
+}
 
 type SR = {
   id: string; type: string; status: string; title: string; description: string;
@@ -31,14 +51,19 @@ function ServiceCard({ sr, onRespond }: {
   sr: SR;
   onRespond: (id: string, action: "approve" | "reject") => Promise<void>;
 }) {
+  const router   = useRouter();
   const [open,    setOpen]    = useState(sr.status === "QUOTED");
   const [loading, setLoading] = useState(false);
-  const status   = STATUS[sr.status] ?? STATUS.PENDING;
-  const isQuoted = sr.status === "QUOTED";
 
-  async function handle(action: "approve" | "reject") {
+  const statusLabel = getStatusLabel(sr.status, sr.type);
+  const statusColor = STATUS_COLORS[sr.status] ?? STATUS_COLORS.PENDING;
+  const isQuoted    = sr.status === "QUOTED";
+  // PRINT/SCANNING fiyat onayı ödeme gerektiriyor; TECHNICAL doğrudan onaylanıyor
+  const isPriceService = sr.type === "PRINT" || sr.type === "SCANNING";
+
+  async function handleReject() {
     setLoading(true);
-    try { await onRespond(sr.id, action); } finally { setLoading(false); }
+    try { await onRespond(sr.id, "reject"); } finally { setLoading(false); }
   }
 
   return (
@@ -46,14 +71,16 @@ function ServiceCard({ sr, onRespond }: {
       {isQuoted && (
         <div className="bg-purple-400/10 border-b border-purple-400/20 px-5 py-2 flex items-center gap-2">
           <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
-          <p className="text-purple-300 text-xs font-medium">Fiyat teklifi hazır — onayınızı bekliyoruz</p>
+          <p className="text-purple-300 text-xs font-medium">
+            {isPriceService ? "Fiyat teklifi hazır — ödeme yaparak talebinizi onaylayın" : "Fiyat teklifi hazır — onayınızı bekliyoruz"}
+          </p>
         </div>
       )}
 
       <div className="flex items-center gap-3 px-5 py-4">
         <div className="flex-1 min-w-0">
           <div className="mb-0.5">
-            <span className={`text-[11px] px-2 py-0.5 rounded-full border ${status.color}`}>{status.label}</span>
+            <span className={`text-[11px] px-2 py-0.5 rounded-full border ${statusColor}`}>{statusLabel}</span>
           </div>
           <p className="text-white font-medium text-sm truncate">{sr.title}</p>
           <p className="text-white/30 text-xs">
@@ -112,23 +139,51 @@ function ServiceCard({ sr, onRespond }: {
             </div>
           )}
 
+          {/* ── Fiyat teklifi aksiyon bloğu ── */}
           {isQuoted && sr.price !== null && (
             <div className="bg-purple-400/[0.06] border border-purple-400/25 rounded-2xl p-4 space-y-3">
               <div>
                 <p className="text-white/50 text-xs uppercase tracking-wide mb-0.5">Fiyat Teklifi</p>
                 <p className="text-2xl font-black text-purple-300">{formatPrice(sr.price)}</p>
               </div>
-              <p className="text-white/40 text-xs">Fiyatı onaylarsanız talebiniz işleme alınır. Reddederseniz talep iptal edilir.</p>
-              <div className="flex gap-2">
-                <button onClick={() => handle("approve")} disabled={loading}
-                  className="flex-1 flex items-center justify-center gap-2 bg-[#00D4AA] hover:bg-[#00bfa0] text-black font-bold text-sm py-2.5 rounded-xl transition-colors disabled:opacity-50">
-                  <CheckCircle2 size={16} /> Onayla
-                </button>
-                <button onClick={() => handle("reject")} disabled={loading}
-                  className="flex-1 flex items-center justify-center gap-2 bg-red-500/15 hover:bg-red-500/25 text-red-400 border border-red-500/30 font-semibold text-sm py-2.5 rounded-xl transition-colors disabled:opacity-50">
-                  <XCircle size={16} /> Reddet
-                </button>
-              </div>
+
+              {isPriceService ? (
+                /* PRINT / SCANNING — ödeme gerekli */
+                <>
+                  <p className="text-white/40 text-xs">
+                    Fiyatı onaylamak için ödeme yapmanız gerekiyor. Ödeme tamamlandıktan sonra talebiniz işleme alınır.
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => router.push(`/checkout/service/${sr.id}`)}
+                      disabled={loading}
+                      className="flex-1 flex items-center justify-center gap-2 bg-[#00D4AA] hover:bg-[#00bfa0] text-black font-bold text-sm py-2.5 rounded-xl transition-colors disabled:opacity-50"
+                    >
+                      <CreditCard size={16} /> Ödemeye Geç
+                    </button>
+                    <button onClick={handleReject} disabled={loading}
+                      className="flex items-center justify-center gap-2 bg-red-500/15 hover:bg-red-500/25 text-red-400 border border-red-500/30 font-semibold text-sm px-4 py-2.5 rounded-xl transition-colors disabled:opacity-50">
+                      <XCircle size={16} /> Reddet
+                    </button>
+                  </div>
+                </>
+              ) : (
+                /* TECHNICAL — doğrudan onayla/reddet */
+                <>
+                  <p className="text-white/40 text-xs">Fiyatı onaylarsanız talebiniz işleme alınır. Reddederseniz talep iptal edilir.</p>
+                  <div className="flex gap-2">
+                    <button onClick={async () => { setLoading(true); try { await onRespond(sr.id, "approve"); } finally { setLoading(false); } }}
+                      disabled={loading}
+                      className="flex-1 flex items-center justify-center gap-2 bg-[#00D4AA] hover:bg-[#00bfa0] text-black font-bold text-sm py-2.5 rounded-xl transition-colors disabled:opacity-50">
+                      <CheckCircle2 size={16} /> Onayla
+                    </button>
+                    <button onClick={handleReject} disabled={loading}
+                      className="flex-1 flex items-center justify-center gap-2 bg-red-500/15 hover:bg-red-500/25 text-red-400 border border-red-500/30 font-semibold text-sm py-2.5 rounded-xl transition-colors disabled:opacity-50">
+                      <XCircle size={16} /> Reddet
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           )}
 
@@ -167,10 +222,15 @@ export default function ServiceRequestsClient({ initialRequests }: { initialRequ
     return (
       <div className="text-center py-24">
         <Wrench size={64} className="mx-auto text-white/10 mb-4" />
-        <p className="text-white/40 mb-6">Henüz teknik servis talebiniz yok</p>
-        <Link href="/services/technical" className="px-4 py-2 bg-[#FF6B35] text-white rounded-xl text-sm font-semibold">
-          Teknik Servis Talebi Oluştur
-        </Link>
+        <p className="text-white/40 mb-6">Henüz servis talebiniz yok</p>
+        <div className="flex gap-3 justify-center">
+          <Link href="/services/print" className="px-4 py-2 bg-[#FF6B35] text-white rounded-xl text-sm font-semibold">
+            3D Baskı Talebi
+          </Link>
+          <Link href="/services/technical" className="px-4 py-2 bg-white/10 text-white rounded-xl text-sm font-semibold">
+            Teknik Servis
+          </Link>
+        </div>
       </div>
     );
   }
@@ -181,7 +241,7 @@ export default function ServiceRequestsClient({ initialRequests }: { initialRequ
         <div className="mb-5 p-3.5 bg-purple-400/[0.07] border border-purple-400/25 rounded-2xl flex items-center gap-3">
           <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse flex-shrink-0" />
           <p className="text-purple-300 text-sm">
-            <span className="font-bold">{quotedCount}</span> talebiniz için fiyat teklifi hazır.
+            <span className="font-bold">{quotedCount}</span> talebiniz için fiyat teklifi hazır — lütfen inceleyin.
           </p>
         </div>
       )}

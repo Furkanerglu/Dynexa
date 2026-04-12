@@ -21,6 +21,21 @@ const ACTIVE = ["PENDING", "REVIEWING", "QUOTED", "CONFIRMED", "IN_PROGRESS"];
 
 function getStatus(v: string) { return STATUS_LIST.find(s => s.value === v) ?? STATUS_LIST[0]; }
 
+// PRINT/SCANNING için PENDING/REVIEWING → "Fiyat Bekliyor" etiketi
+function getStatusDisplay(status: string, type: string): { label: string; cls: string } {
+  const isPriceService = type === "PRINT" || type === "SCANNING";
+  if (isPriceService && (status === "PENDING" || status === "REVIEWING")) {
+    return { label: "Fiyat Bekliyor", cls: "text-yellow-400 bg-yellow-400/10 border-yellow-400/30" };
+  }
+  if (isPriceService && status === "QUOTED") {
+    return { label: "Fiyat Verildi — Ödeme Bekleniyor", cls: "text-purple-400 bg-purple-400/10 border-purple-400/30" };
+  }
+  if (isPriceService && status === "CONFIRMED") {
+    return { label: "Ödeme Alındı", cls: "text-[#00D4AA] bg-[#00D4AA]/10 border-[#00D4AA]/30" };
+  }
+  return getStatus(status);
+}
+
 type SR = {
   id: string; type: string; status: string; title: string; description: string;
   files: string[]; specs: Record<string, unknown> | null;
@@ -71,7 +86,7 @@ function ServiceCard({ sr, onUpdate }: { sr: SR; onUpdate: (id: string, patch: o
   const [saving, setSaving]         = useState(false);
   const [priceInput, setPriceInput] = useState(sr.price != null ? String(sr.price) : "");
   const [noteInput, setNoteInput]   = useState(sr.adminNotes ?? "");
-  const st = getStatus(sr.status);
+  const st = getStatusDisplay(sr.status, sr.type);
 
   async function changeStatus(id: string, val: string) { setSaving(true); await onUpdate(id, { status: val }); setSaving(false); }
 
@@ -91,8 +106,9 @@ function ServiceCard({ sr, onUpdate }: { sr: SR; onUpdate: (id: string, patch: o
     <div className={`border rounded-2xl overflow-visible transition-all ${open ? "border-white/20 bg-white/[0.04]" : "border-white/10 bg-white/[0.02]"} ${saving ? "opacity-60 pointer-events-none" : ""}`}>
       <div className="flex items-center gap-3 px-5 py-4">
         <div className="flex-1 min-w-0">
-          <div className="mb-0.5">
+          <div className="mb-0.5 flex items-center gap-1.5">
             <span className={`text-[11px] px-2 py-0.5 rounded-full border ${st.cls}`}>{st.label}</span>
+            <span className="text-[10px] text-white/25">{sr.type === "PRINT" ? "3D Baskı" : sr.type === "SCANNING" ? "Tarama" : "Teknik"}</span>
           </div>
           <p className="text-white font-medium text-sm truncate">{sr.title}</p>
           <p className="text-white/35 text-xs">{sr.user.name ?? "—"} · {sr.user.email} · {new Date(sr.createdAt).toLocaleDateString("tr-TR")}</p>
