@@ -9,7 +9,7 @@ import { NotificationBell } from "@/components/NotificationBell";
 import { motion, AnimatePresence } from "framer-motion";
 
 const navLinks = [
-  { href: "/shop", label: "Mağaza" },
+  { href: "/shop", label: "Ürünler" },
   { href: "/filament", label: "Filament" },
   {
     label: "Hizmetler",
@@ -208,7 +208,7 @@ export function Navbar() {
             className="md:hidden bg-black/90 backdrop-blur-md border-t border-white/10"
           >
             <div className="px-4 py-4 space-y-2">
-              <Link href="/shop" className="block py-2 text-white/70 hover:text-white" onClick={() => setMobileOpen(false)}>Mağaza</Link>
+              <Link href="/shop" className="block py-2 text-white/70 hover:text-white" onClick={() => setMobileOpen(false)}>Ürünler</Link>
               <Link href="/filament" className="block py-2 text-white/70 hover:text-white" onClick={() => setMobileOpen(false)}>Filament</Link>
               <Link href="/services/print" className="block py-2 text-white/70 hover:text-white" onClick={() => setMobileOpen(false)}>3D Baskı</Link>
               <Link href="/services/scanning" className="block py-2 text-white/70 hover:text-white" onClick={() => setMobileOpen(false)}>3D Tarama</Link>

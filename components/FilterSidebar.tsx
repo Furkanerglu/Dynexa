@@ -96,7 +96,7 @@ export function FilterSidebar({ categories, brands, showMaterialFilter }: Filter
           </div>
         )}
 
-        {/* Marka */}
+        {/* Marka (filament sayfası için) */}
         {brands.length > 0 && (
           <div>
             <p className="text-white/40 text-xs font-medium uppercase tracking-wider mb-3">

@@ -1,78 +1,78 @@
 // DB olmadığında veya build sırasında kullanılan mock veriler
 
 export const MOCK_PARTS_CATEGORIES = [
-  { id: "cat-1", name: "Hotend & Nozzle", slug: "hotend-nozzle", type: "PARTS" as const },
-  { id: "cat-2", name: "Ekstruder", slug: "ekstruder", type: "PARTS" as const },
-  { id: "cat-3", name: "Motion Sistemi", slug: "motion", type: "PARTS" as const },
-  { id: "cat-4", name: "Isıtma & Yatak", slug: "isitma-yatak", type: "PARTS" as const },
+  { id: "cat-1", name: "Figürler",           slug: "figurler",          type: "PARTS" as const },
+  { id: "cat-2", name: "Ev & Dekorasyon",    slug: "ev-dekorasyon",     type: "PARTS" as const },
+  { id: "cat-3", name: "Oyuncak & Koleksiyon", slug: "oyuncak-koleksiyon", type: "PARTS" as const },
+  { id: "cat-4", name: "Fonksiyonel",        slug: "fonksiyonel",       type: "PARTS" as const },
 ];
 
 export const MOCK_FILAMENT_CATEGORIES = [
-  { id: "cat-5", name: "PLA", slug: "pla", type: "FILAMENT" as const },
-  { id: "cat-6", name: "PETG", slug: "petg", type: "FILAMENT" as const },
-  { id: "cat-7", name: "ABS / ASA", slug: "abs-asa", type: "FILAMENT" as const },
-  { id: "cat-8", name: "TPU / Esnek", slug: "tpu", type: "FILAMENT" as const },
+  { id: "cat-5", name: "PLA",        slug: "pla",      type: "FILAMENT" as const },
+  { id: "cat-6", name: "PETG",       slug: "petg",     type: "FILAMENT" as const },
+  { id: "cat-7", name: "ABS / ASA",  slug: "abs-asa",  type: "FILAMENT" as const },
+  { id: "cat-8", name: "TPU / Esnek", slug: "tpu",     type: "FILAMENT" as const },
 ];
 
-export const MOCK_PARTS_BRANDS = ["E3D", "Bambu Lab", "Bondtech", "Creality", "Trianglelab"];
+export const MOCK_PARTS_BRANDS: string[] = [];
 export const MOCK_FILAMENT_BRANDS = ["Bambu Lab", "eSUN", "Polymaker", "Fiberlogy", "Prusament"];
 
 export const MOCK_PARTS = [
   {
-    id: "p-1", name: "E3D V6 Hotend", slug: "e3d-v6-hotend",
-    price: 850, salePrice: null,
-    images: ["/placeholder-product.jpg"], stock: 12,
-    brand: "E3D",
-    category: { name: "Hotend & Nozzle", slug: "hotend-nozzle" },
-  },
-  {
-    id: "p-2", name: "0.4mm Pirinç Nozzle", slug: "pirince-nozzle-04",
-    price: 85, salePrice: 65,
-    images: ["/placeholder-product.jpg"], stock: 50,
-    brand: "Trianglelab",
-    category: { name: "Hotend & Nozzle", slug: "hotend-nozzle" },
-  },
-  {
-    id: "p-3", name: "BMG Ekstruder Klon", slug: "bmg-ekstruder",
-    price: 420, salePrice: null,
+    id: "p-1", name: "Naruto Uzumaki Figürü", slug: "naruto-uzumaki-figuru",
+    price: 299, salePrice: null,
     images: ["/placeholder-product.jpg"], stock: 8,
-    brand: "Bondtech",
-    category: { name: "Ekstruder", slug: "ekstruder" },
+    brand: null,
+    category: { name: "Figürler", slug: "figurler" },
   },
   {
-    id: "p-4", name: "Ender 3 GT2 Kayış 2m", slug: "ender3-gt2-kayis",
-    price: 120, salePrice: null,
-    images: ["/placeholder-product.jpg"], stock: 30,
-    brand: "Creality",
-    category: { name: "Motion Sistemi", slug: "motion" },
+    id: "p-2", name: "Monkey D. Luffy Figürü", slug: "luffy-figuru",
+    price: 349, salePrice: 299,
+    images: ["/placeholder-product.jpg"], stock: 5,
+    brand: null,
+    category: { name: "Figürler", slug: "figurler" },
   },
   {
-    id: "p-5", name: "NEMA 17 Step Motor", slug: "nema17-step-motor",
-    price: 380, salePrice: 320,
-    images: ["/placeholder-product.jpg"], stock: 15,
-    brand: "Creality",
-    category: { name: "Motion Sistemi", slug: "motion" },
-  },
-  {
-    id: "p-6", name: "Silikon Isıtma Bloğu 24V 40W", slug: "silikon-isitma-bloku",
-    price: 195, salePrice: null,
+    id: "p-3", name: "Spiral Vazo — Orta Boy", slug: "spiral-vazo-orta",
+    price: 179, salePrice: null,
     images: ["/placeholder-product.jpg"], stock: 20,
-    brand: "Trianglelab",
-    category: { name: "Isıtma & Yatak", slug: "isitma-yatak" },
+    brand: null,
+    category: { name: "Ev & Dekorasyon", slug: "ev-dekorasyon" },
   },
   {
-    id: "p-7", name: "PEI Yay Çeliği Yatak 235x235", slug: "pei-yatak-235",
-    price: 650, salePrice: 550,
+    id: "p-4", name: "Geometrik Saksı Seti (3'lü)", slug: "geometrik-saksi-seti",
+    price: 249, salePrice: null,
+    images: ["/placeholder-product.jpg"], stock: 12,
+    brand: null,
+    category: { name: "Ev & Dekorasyon", slug: "ev-dekorasyon" },
+  },
+  {
+    id: "p-5", name: "Satranç Takımı — Tam Set", slug: "satranc-takimi",
+    price: 599, salePrice: 499,
+    images: ["/placeholder-product.jpg"], stock: 4,
+    brand: null,
+    category: { name: "Oyuncak & Koleksiyon", slug: "oyuncak-koleksiyon" },
+  },
+  {
+    id: "p-6", name: "Telefon & Tablet Standı", slug: "telefon-tablet-standi",
+    price: 159, salePrice: null,
+    images: ["/placeholder-product.jpg"], stock: 30,
+    brand: null,
+    category: { name: "Fonksiyonel", slug: "fonksiyonel" },
+  },
+  {
+    id: "p-7", name: "İstanbul Silüeti Duvar Süsü", slug: "istanbul-silueti-duvar",
+    price: 389, salePrice: null,
     images: ["/placeholder-product.jpg"], stock: 7,
-    brand: "Bambu Lab",
-    category: { name: "Isıtma & Yatak", slug: "isitma-yatak" },
+    brand: null,
+    category: { name: "Ev & Dekorasyon", slug: "ev-dekorasyon" },
   },
   {
-    id: "p-8", name: "Volcano 0.6mm Nozzle", slug: "volcano-nozzle-06",
-    price: 110, salePrice: null,
-    images: ["/placeholder-product.jpg"], stock: 0,
-    brand: "E3D",
-    category: { name: "Hotend & Nozzle", slug: "hotend-nozzle" },
+    id: "p-8", name: "Ejderha Heykel — Büyük", slug: "ejderha-heykel",
+    price: 549, salePrice: null,
+    images: ["/placeholder-product.jpg"], stock: 3,
+    brand: null,
+    category: { name: "Figürler", slug: "figurler" },
   },
 ];
 

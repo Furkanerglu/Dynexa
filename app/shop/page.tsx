@@ -11,8 +11,8 @@ import {
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Mağaza — 3D Yazıcı Parçaları | DYNEXA",
-  description: "Hotend, nozzle, ekstruder, motor ve daha fazlası. Orijinal ve uyumlu parçalar.",
+  title: "Mağaza — 3D Baskı Ürünleri | DYNEXA",
+  description: "Figürler, ev dekorasyonu, oyuncaklar, takı ve fonksiyonel ürünler. Tamamı 3D baskı ile üretilmiştir.",
 };
 
 interface SearchParams {
@@ -28,15 +28,10 @@ async function getShopData() {
     const { prisma } = await import("@/lib/prisma");
     const { CategoryType } = await import("@prisma/client");
 
-    const [categories, brandRows, products] = await Promise.all([
+    const [categories, products] = await Promise.all([
       prisma.category.findMany({
         where: { type: CategoryType.PARTS },
         orderBy: { name: "asc" },
-      }),
-      prisma.product.findMany({
-        where: { category: { type: CategoryType.PARTS }, brand: { not: null } },
-        select: { brand: true },
-        distinct: ["brand"],
       }),
       prisma.product.findMany({
         where: { isActive: true, category: { type: CategoryType.PARTS } },
@@ -47,7 +42,6 @@ async function getShopData() {
 
     return {
       categories,
-      brands: brandRows.map((b) => b.brand!).filter(Boolean),
       products: products.map((p) => ({
         id: p.id,
         name: p.name,
@@ -58,15 +52,16 @@ async function getShopData() {
         stock: p.stock,
         brand: p.brand,
         category: p.category,
+        specs: p.specs as Record<string, unknown> | null,
       })),
     };
   } catch {
     // DB yok — mock veri kullan
     return {
       categories: MOCK_PARTS_CATEGORIES,
-      brands: MOCK_PARTS_BRANDS,
       products: MOCK_PARTS.map((p) => ({
         ...p,
+        specs: null,
         category: { id: p.category.slug, name: p.category.name, slug: p.category.slug, type: "PARTS" as const },
       })),
     };
@@ -74,7 +69,7 @@ async function getShopData() {
 }
 
 async function ShopContent({ searchParams }: { searchParams: SearchParams }) {
-  const { categories, brands, products: allProducts } = await getShopData();
+  const { categories, products: allProducts } = await getShopData();
 
   // İstemci tarafı filtreler (URL params)
   let products = allProducts;
@@ -85,7 +80,10 @@ async function ShopContent({ searchParams }: { searchParams: SearchParams }) {
     );
   }
   if (searchParams.brand) {
-    products = products.filter((p) => p.brand === searchParams.brand);
+    // malzeme filtresi — specs.malzeme alanından
+    products = products.filter(
+      (p) => (p.specs as { malzeme?: string } | null)?.malzeme === searchParams.brand
+    );
   }
   if (searchParams.inStock === "true") {
     products = products.filter((p) => p.stock > 0);
@@ -103,7 +101,7 @@ async function ShopContent({ searchParams }: { searchParams: SearchParams }) {
 
   return (
     <div className="flex flex-col lg:flex-row gap-8">
-      <FilterSidebar categories={categories} brands={brands} />
+      <FilterSidebar categories={categories} brands={[]} showMaterialFilter />
       <div className="flex-1">
         <div className="flex items-center justify-between mb-6">
           <p className="text-white/40 text-sm">
@@ -150,8 +148,11 @@ export default async function ShopPage({
             Mağaza
           </p>
           <h1 className="text-3xl md:text-4xl font-black tracking-tighter text-white">
-            3D Yazıcı Parçaları
+            3D Baskı Ürünleri
           </h1>
+          <p className="text-white/40 mt-2 text-sm">
+            Figürler, dekorasyon, koleksiyon ve daha fazlası — hepsi 3D baskı ile üretildi.
+          </p>
         </div>
         <Suspense fallback={<div className="text-white/40">Yükleniyor...</div>}>
           <ShopContent searchParams={searchParams} />

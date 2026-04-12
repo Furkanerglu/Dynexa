@@ -25,11 +25,11 @@ const SECTIONS = [
     cta: { label: "Baskı Talebi Oluştur", href: "/services/print" },
   },
   {
-    title: "HAZIR PARÇALAR, ANINDA TESLİM",
-    subtitle: "Stokta yüzlerce hazır 3D baskı parça — sipariş ver, kapında olsun",
+    title: "3D BASKI ÜRÜNLER",
+    subtitle: "Figürler, dekorasyon, koleksiyon ve fonksiyonel ürünler — hepsi 3D baskı ile",
     color: "#00D4AA",
     start: 0.40, end: 0.60,
-    cta: { label: "Mağazaya Gözat", href: "/shop" },
+    cta: { label: "Ürünleri İncele", href: "/shop" },
   },
   {
     title: "TEKNİK SERVİS YANINDA",
