@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { Wrench, Zap, Scan, CheckCircle2, XCircle, ChevronDown, ChevronUp } from "lucide-react";
 import Link from "next/link";
@@ -18,17 +18,34 @@ const STATUS: Record<string, { label: string; color: string }> = {
   CANCELLED:   { label: "İptal",          color: "text-red-400 bg-red-400/10 border-red-400/30" },
 };
 
-const TYPE_ICONS: Record<string, typeof Wrench> = {
-  PRINT:     Zap,
-  SCANNING:  Scan,
-  TECHNICAL: Wrench,
-};
+const TABS = [
+  {
+    type:     "PRINT",
+    label:    "3D Baskı",
+    icon:     Zap,
+    active:   "border-[#FF6B35]/50 bg-[#FF6B35]/10 text-[#FF6B35]",
+    emptyHref: "/services/print",
+    emptyLabel: "3D Baskı Talebi",
+  },
+  {
+    type:     "TECHNICAL",
+    label:    "Teknik Servis",
+    icon:     Wrench,
+    active:   "border-blue-400/50 bg-blue-400/10 text-blue-400",
+    emptyHref: "/services/technical",
+    emptyLabel: "Teknik Servis Talebi",
+  },
+  {
+    type:     "SCANNING",
+    label:    "3D Tarama",
+    icon:     Scan,
+    active:   "border-[#00D4AA]/50 bg-[#00D4AA]/10 text-[#00D4AA]",
+    emptyHref: "/services/scanning",
+    emptyLabel: "Tarama Talebi",
+  },
+] as const;
 
-const TYPE_LABELS: Record<string, string> = {
-  PRINT:     "3D Baskı",
-  SCANNING:  "3D Tarama",
-  TECHNICAL: "Teknik Servis",
-};
+type TabType = "PRINT" | "TECHNICAL" | "SCANNING";
 
 type SR = {
   id: string;
@@ -54,88 +71,62 @@ function ServiceCard({
   sr: SR;
   onRespond: (id: string, action: "approve" | "reject") => Promise<void>;
 }) {
-  const [open, setOpen]       = useState(sr.status === "QUOTED"); // QUOTED ise otomatik açık
+  const [open,    setOpen]    = useState(sr.status === "QUOTED");
   const [loading, setLoading] = useState(false);
 
-  const Icon   = TYPE_ICONS[sr.type] || Wrench;
-  const status = STATUS[sr.status] ?? STATUS.PENDING;
+  const status   = STATUS[sr.status] ?? STATUS.PENDING;
   const isQuoted = sr.status === "QUOTED";
 
   async function handle(action: "approve" | "reject") {
     setLoading(true);
-    try {
-      await onRespond(sr.id, action);
-    } finally {
-      setLoading(false);
-    }
+    try { await onRespond(sr.id, action); }
+    finally { setLoading(false); }
   }
 
   return (
-    <div
-      className={`border rounded-2xl overflow-hidden transition-all ${
-        isQuoted
-          ? "border-purple-400/40 bg-purple-400/[0.04]"
-          : "border-white/10 bg-white/[0.02]"
-      } ${loading ? "opacity-60 pointer-events-none" : ""}`}
-    >
+    <div className={`border rounded-2xl overflow-hidden transition-all ${
+      isQuoted ? "border-purple-400/40 bg-purple-400/[0.04]" : "border-white/10 bg-white/[0.02]"
+    } ${loading ? "opacity-60 pointer-events-none" : ""}`}>
+
       {/* QUOTED uyarı bandı */}
       {isQuoted && (
-        <div className="bg-purple-400/10 border-b border-purple-400/20 px-5 py-2.5 flex items-center gap-2">
+        <div className="bg-purple-400/10 border-b border-purple-400/20 px-5 py-2 flex items-center gap-2">
           <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
-          <p className="text-purple-300 text-xs font-medium">
-            Fiyat teklifi hazır — onaylamanızı bekliyoruz
-          </p>
+          <p className="text-purple-300 text-xs font-medium">Fiyat teklifi hazır — onayınızı bekliyoruz</p>
         </div>
       )}
 
-      {/* Başlık satırı */}
+      {/* Başlık */}
       <div className="flex items-center gap-3 px-5 py-4">
-        <div className="w-10 h-10 rounded-xl bg-[#FF6B35]/10 border border-[#FF6B35]/20 flex items-center justify-center flex-shrink-0">
-          <Icon size={18} className="text-[#FF6B35]" />
-        </div>
-
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-0.5">
-            <span className="text-[11px] text-white/40 bg-white/5 border border-white/10 px-2 py-0.5 rounded-full">
-              {TYPE_LABELS[sr.type]}
-            </span>
-            <span className={`text-[11px] px-2 py-0.5 rounded-full border ${status.color}`}>
-              {status.label}
-            </span>
+            <span className={`text-[11px] px-2 py-0.5 rounded-full border ${status.color}`}>{status.label}</span>
           </div>
           <p className="text-white font-medium text-sm truncate">{sr.title}</p>
           <p className="text-white/30 text-xs">
-            {new Date(sr.createdAt).toLocaleDateString("tr-TR", {
-              day: "numeric", month: "long", year: "numeric",
-            })}
+            {new Date(sr.createdAt).toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" })}
           </p>
         </div>
-
         <div className="flex items-center gap-3 flex-shrink-0">
           {sr.price !== null && (
             <span className={`font-bold text-sm ${isQuoted ? "text-purple-300" : "text-[#FF6B35]"}`}>
               {formatPrice(sr.price)}
             </span>
           )}
-          <button
-            onClick={() => setOpen((v) => !v)}
-            className="text-white/30 hover:text-white transition-colors p-1"
-          >
+          <button onClick={() => setOpen(v => !v)} className="text-white/30 hover:text-white transition-colors p-1">
             {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
           </button>
         </div>
       </div>
 
-      {/* Genişletilmiş panel */}
+      {/* Detay */}
       {open && (
         <div className="border-t border-white/5 px-5 py-4 space-y-4">
-          {/* Açıklama */}
           <div>
             <p className="text-[11px] text-white/30 uppercase tracking-wide mb-1">Açıklama</p>
             <p className="text-white/60 text-sm leading-relaxed">{sr.description}</p>
           </div>
 
-          {/* Specs */}
           {sr.specs && Object.keys(sr.specs).length > 0 && (
             <div>
               <p className="text-[11px] text-white/30 uppercase tracking-wide mb-2">Özellikler</p>
@@ -150,19 +141,13 @@ function ServiceCard({
             </div>
           )}
 
-          {/* Dosyalar */}
           {sr.files.length > 0 && (
             <div>
               <p className="text-[11px] text-white/30 uppercase tracking-wide mb-2">Dosyalar</p>
               <div className="flex flex-wrap gap-2">
                 {sr.files.map((url, i) => (
-                  <a
-                    key={i}
-                    href={url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-xs text-[#FF6B35] bg-[#FF6B35]/10 border border-[#FF6B35]/20 px-2.5 py-1 rounded-lg hover:underline"
-                  >
+                  <a key={i} href={url} target="_blank" rel="noreferrer"
+                    className="text-xs text-[#FF6B35] bg-[#FF6B35]/10 border border-[#FF6B35]/20 px-2.5 py-1 rounded-lg hover:underline">
                     Dosya {i + 1}
                   </a>
                 ))}
@@ -170,7 +155,6 @@ function ServiceCard({
             </div>
           )}
 
-          {/* Admin Notu */}
           {sr.adminNotes && (
             <div className="p-3 bg-white/5 border border-white/10 rounded-xl">
               <p className="text-[11px] text-white/30 uppercase tracking-wide mb-1">Yetkili Notu</p>
@@ -178,7 +162,7 @@ function ServiceCard({
             </div>
           )}
 
-          {/* ─── QUOTED: Fiyat Onay Kutusu ──────────────────────────────── */}
+          {/* Fiyat onay kutusu */}
           {isQuoted && sr.price !== null && (
             <div className="bg-purple-400/[0.06] border border-purple-400/25 rounded-2xl p-4 space-y-3">
               <div className="flex items-center justify-between">
@@ -186,47 +170,26 @@ function ServiceCard({
                   <p className="text-white/50 text-xs uppercase tracking-wide mb-0.5">Fiyat Teklifi</p>
                   <p className="text-2xl font-black text-purple-300">{formatPrice(sr.price)}</p>
                 </div>
-                {sr.adminNotes && (
-                  <div className="text-right max-w-[180px]">
-                    <p className="text-white/30 text-[10px] uppercase tracking-wide mb-0.5">Not</p>
-                    <p className="text-white/55 text-xs line-clamp-2">{sr.adminNotes}</p>
-                  </div>
-                )}
               </div>
-
               <p className="text-white/40 text-xs">
                 Fiyatı onaylarsanız talebiniz işleme alınır. Reddederseniz talep iptal edilir.
               </p>
-
               <div className="flex gap-2 pt-1">
-                <button
-                  onClick={() => handle("approve")}
-                  disabled={loading}
-                  className="flex-1 flex items-center justify-center gap-2 bg-[#00D4AA] hover:bg-[#00bfa0] text-black font-bold text-sm py-2.5 rounded-xl transition-colors disabled:opacity-50"
-                >
-                  <CheckCircle2 size={16} />
-                  Onayla
+                <button onClick={() => handle("approve")} disabled={loading}
+                  className="flex-1 flex items-center justify-center gap-2 bg-[#00D4AA] hover:bg-[#00bfa0] text-black font-bold text-sm py-2.5 rounded-xl transition-colors disabled:opacity-50">
+                  <CheckCircle2 size={16} /> Onayla
                 </button>
-                <button
-                  onClick={() => handle("reject")}
-                  disabled={loading}
-                  className="flex-1 flex items-center justify-center gap-2 bg-red-500/15 hover:bg-red-500/25 text-red-400 border border-red-500/30 font-semibold text-sm py-2.5 rounded-xl transition-colors disabled:opacity-50"
-                >
-                  <XCircle size={16} />
-                  Reddet
+                <button onClick={() => handle("reject")} disabled={loading}
+                  className="flex-1 flex items-center justify-center gap-2 bg-red-500/15 hover:bg-red-500/25 text-red-400 border border-red-500/30 font-semibold text-sm py-2.5 rounded-xl transition-colors disabled:opacity-50">
+                  <XCircle size={16} /> Reddet
                 </button>
               </div>
             </div>
           )}
 
-          {/* Meta */}
           <div className="flex justify-between pt-1 border-t border-white/5">
-            <span className="text-[11px] text-white/20 font-mono">
-              #{sr.id.slice(-8).toUpperCase()}
-            </span>
-            <span className="text-[11px] text-white/20">
-              Güncellendi: {new Date(sr.updatedAt).toLocaleDateString("tr-TR")}
-            </span>
+            <span className="text-[11px] text-white/20 font-mono">#{sr.id.slice(-8).toUpperCase()}</span>
+            <span className="text-[11px] text-white/20">Güncellendi: {new Date(sr.updatedAt).toLocaleDateString("tr-TR")}</span>
           </div>
         </div>
       )}
@@ -236,96 +199,110 @@ function ServiceCard({
 
 // ─── Ana Component ────────────────────────────────────────────────────────────
 
-export default function ServiceRequestsClient({
-  initialRequests,
-}: {
-  initialRequests: SR[];
-}) {
-  const [items, setItems] = useState<SR[]>(initialRequests);
-
-  // QUOTED olan talepler en üste
-  const sorted = [...items].sort((a, b) => {
-    if (a.status === "QUOTED" && b.status !== "QUOTED") return -1;
-    if (a.status !== "QUOTED" && b.status === "QUOTED") return 1;
-    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+export default function ServiceRequestsClient({ initialRequests }: { initialRequests: SR[] }) {
+  const [items,     setItems]     = useState<SR[]>(initialRequests);
+  const [activeTab, setActiveTab] = useState<TabType>(() => {
+    // QUOTED olan varsa o sekmeyi aç
+    const quoted = initialRequests.find(r => r.status === "QUOTED");
+    return (quoted?.type as TabType) ?? "PRINT";
   });
+
+  const counts = {
+    PRINT:     items.filter(r => r.type === "PRINT"     && r.status === "QUOTED").length,
+    TECHNICAL: items.filter(r => r.type === "TECHNICAL" && r.status === "QUOTED").length,
+    SCANNING:  items.filter(r => r.type === "SCANNING"  && r.status === "QUOTED").length,
+  };
+
+  const tabItems = useMemo(
+    () => [...items.filter(r => r.type === activeTab)]
+      .sort((a, b) => {
+        if (a.status === "QUOTED" && b.status !== "QUOTED") return -1;
+        if (a.status !== "QUOTED" && b.status === "QUOTED") return 1;
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }),
+    [items, activeTab]
+  );
+
+  const totalQuoted = counts.PRINT + counts.TECHNICAL + counts.SCANNING;
+  const currentTab  = TABS.find(t => t.type === activeTab)!;
 
   async function handleRespond(id: string, action: "approve" | "reject") {
     try {
       const res = await fetch(`/api/services/${id}/respond`, {
-        method: "POST",
+        method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
+        body:    JSON.stringify({ action }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`);
 
-      setItems((prev) =>
-        prev.map((r) =>
-          r.id !== id
-            ? r
-            : {
-                ...r,
-                status:    data.status    ?? r.status,
-                updatedAt: data.updatedAt ?? r.updatedAt,
-              }
-        )
+      setItems(prev => prev.map(r =>
+        r.id !== id ? r : { ...r, status: data.status ?? r.status, updatedAt: data.updatedAt ?? r.updatedAt }
+      ));
+      toast[action === "approve" ? "success" : "message"](
+        action === "approve" ? "Fiyat onaylandı! Talebiniz işleme alındı." : "Talep iptal edildi."
       );
-
-      if (action === "approve") {
-        toast.success("Fiyat onaylandı! Talebiniz işleme alındı.");
-      } else {
-        toast("Talep iptal edildi.", { icon: "✕" });
-      }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      toast.error(`Hata: ${msg}`);
+      toast.error(err instanceof Error ? err.message : String(err));
       throw err;
     }
   }
 
-  if (items.length === 0) {
-    return (
-      <div className="text-center py-24">
-        <Wrench size={64} className="mx-auto text-white/10 mb-4" />
-        <p className="text-white/40 mb-6">Henüz servis talebiniz yok</p>
-        <div className="flex gap-3 justify-center">
-          <Link
-            href="/services/print"
-            className="px-4 py-2 bg-[#FF6B35] text-white rounded-xl text-sm font-semibold"
-          >
-            3D Baskı
-          </Link>
-          <Link
-            href="/services/technical"
-            className="px-4 py-2 border border-white/20 text-white rounded-xl text-sm font-semibold"
-          >
-            Teknik Servis
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  const quotedCount = items.filter((r) => r.status === "QUOTED").length;
-
   return (
     <div>
-      {/* Onay bekleyen uyarısı */}
-      {quotedCount > 0 && (
-        <div className="mb-5 p-4 bg-purple-400/[0.07] border border-purple-400/25 rounded-2xl flex items-center gap-3">
+      {/* Toplu onay bekleyen uyarısı */}
+      {totalQuoted > 0 && (
+        <div className="mb-5 p-3.5 bg-purple-400/[0.07] border border-purple-400/25 rounded-2xl flex items-center gap-3">
           <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse flex-shrink-0" />
           <p className="text-purple-300 text-sm">
-            <span className="font-bold">{quotedCount}</span> talebiniz için fiyat teklifi hazır — onayınızı bekliyoruz.
+            <span className="font-bold">{totalQuoted}</span> talebiniz için fiyat teklifi hazır — onayınızı bekliyoruz.
           </p>
         </div>
       )}
 
-      <div className="space-y-4">
-        {sorted.map((req) => (
-          <ServiceCard key={req.id} sr={req} onRespond={handleRespond} />
-        ))}
+      {/* Sekmeler */}
+      <div className="flex gap-2 mb-6 border-b border-white/10 pb-0">
+        {TABS.map(tab => {
+          const Icon     = tab.icon;
+          const isActive = activeTab === tab.type;
+          const q        = counts[tab.type];
+          return (
+            <button
+              key={tab.type}
+              onClick={() => setActiveTab(tab.type)}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-t-xl border-t border-x text-sm font-medium transition-all -mb-px ${
+                isActive ? `${tab.active} border-white/15` : "border-transparent text-white/40 hover:text-white/70"
+              }`}
+            >
+              <Icon size={14} className={isActive ? "" : "opacity-60"} />
+              {tab.label}
+              {q > 0 && (
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${isActive ? "bg-white/15" : "bg-purple-400/20 text-purple-300"}`}>
+                  {q}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
+
+      {/* Tab içeriği */}
+      {tabItems.length === 0 ? (
+        <div className="text-center py-16">
+          <currentTab.icon size={48} className="mx-auto text-white/10 mb-4" />
+          <p className="text-white/40 mb-4">{currentTab.label} talebiniz yok</p>
+          <Link href={currentTab.emptyHref}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#FF6B35] text-white rounded-xl text-sm font-semibold">
+            {currentTab.emptyLabel} Oluştur
+          </Link>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {tabItems.map(req => (
+            <ServiceCard key={req.id} sr={req} onRespond={handleRespond} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
