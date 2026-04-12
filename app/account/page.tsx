@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import Link from "next/link";
 import { formatPrice } from "@/lib/utils";
-import { Package, Wrench, User, ChevronRight, MapPin, Settings } from "lucide-react";
+import { Package, Wrench, User, ChevronRight, MapPin, Settings, Zap, Scan } from "lucide-react";
 
 type OrderWithItems = Prisma.OrderGetPayload<{
   include: { items: { include: { product: true } } };
@@ -16,18 +16,30 @@ export default async function AccountPage() {
   if (!session) redirect("/login");
 
   let orders: OrderWithItems[] = [];
-  let serviceRequests: Prisma.ServiceRequestGetPayload<object>[] = [];
+  let printRequests: Prisma.ServiceRequestGetPayload<object>[] = [];
+  let scanRequests:  Prisma.ServiceRequestGetPayload<object>[] = [];
+  let technicalRequests: Prisma.ServiceRequestGetPayload<object>[] = [];
 
   try {
-    [orders, serviceRequests] = await Promise.all([
+    [orders, printRequests, scanRequests, technicalRequests] = await Promise.all([
       prisma.order.findMany({
         where: { userId: session.user.id },
         include: { items: { include: { product: true } } },
         orderBy: { createdAt: "desc" },
-        take: 3,
+        take: 5,
       }),
       prisma.serviceRequest.findMany({
-        where: { userId: session.user.id },
+        where: { userId: session.user.id, type: "PRINT" },
+        orderBy: { createdAt: "desc" },
+        take: 5,
+      }),
+      prisma.serviceRequest.findMany({
+        where: { userId: session.user.id, type: "SCANNING" },
+        orderBy: { createdAt: "desc" },
+        take: 5,
+      }),
+      prisma.serviceRequest.findMany({
+        where: { userId: session.user.id, type: "TECHNICAL" },
         orderBy: { createdAt: "desc" },
         take: 3,
       }),
@@ -35,6 +47,43 @@ export default async function AccountPage() {
   } catch {
     // DB bağlantısı yoksa boş liste göster
   }
+
+  // Siparişler + 3D Baskı + 3D Tarama birleştir, tarihe göre sırala, son 4'ü al
+  type OrderEntry = { kind: "order"; id: string; label: string; sub: string; status: string; amount: number | null; date: Date };
+  type SREntry    = { kind: "print" | "scan"; id: string; label: string; sub: string; status: string; amount: number | null; date: Date };
+  type AnyEntry   = OrderEntry | SREntry;
+
+  const allOrderEntries: AnyEntry[] = [
+    ...orders.map(o => ({
+      kind:   "order" as const,
+      id:     o.id,
+      label:  `Sipariş #${o.id.slice(-8).toUpperCase()}`,
+      sub:    `${o.items.length} ürün`,
+      status: o.status,
+      amount: Number(o.totalAmount),
+      date:   o.createdAt,
+    })),
+    ...printRequests.map(r => ({
+      kind:   "print" as const,
+      id:     r.id,
+      label:  r.title,
+      sub:    "3D Baskı",
+      status: r.status,
+      amount: r.price !== null ? Number(r.price) : null,
+      date:   r.createdAt,
+    })),
+    ...scanRequests.map(r => ({
+      kind:   "scan" as const,
+      id:     r.id,
+      label:  r.title,
+      sub:    "3D Tarama",
+      status: r.status,
+      amount: r.price !== null ? Number(r.price) : null,
+      date:   r.createdAt,
+    })),
+  ]
+    .sort((a, b) => b.date.getTime() - a.date.getTime())
+    .slice(0, 4);
 
   const ORDER_STATUS_LABELS: Record<string, string> = {
     PENDING: "Beklemede",
@@ -92,7 +141,7 @@ export default async function AccountPage() {
           </Link>
         </div>
 
-        {/* Son Siparişler */}
+        {/* Son Siparişler (Ürün + 3D Baskı + 3D Tarama) */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-white font-bold flex items-center gap-2">
@@ -104,70 +153,91 @@ export default async function AccountPage() {
             </Link>
           </div>
 
-          {orders.length === 0 ? (
+          {allOrderEntries.length === 0 ? (
             <div className="p-6 bg-white/[0.03] border border-white/10 rounded-2xl text-center text-white/40">
               Henüz sipariş yok
             </div>
           ) : (
             <div className="space-y-3">
-              {orders.map((order) => (
-                <div key={order.id} className="p-4 bg-white/[0.03] border border-white/10 rounded-2xl flex items-center justify-between">
-                  <div>
-                    <p className="text-white text-sm font-medium">
-                      Sipariş #{order.id.slice(-8).toUpperCase()}
-                    </p>
-                    <p className="text-white/40 text-xs mt-1">
-                      {order.items.length} ürün · {new Date(order.createdAt).toLocaleDateString("tr-TR")}
-                    </p>
+              {allOrderEntries.map((entry) => {
+                const isOrder = entry.kind === "order";
+                const isPrint = entry.kind === "print";
+                const statusLabel = isOrder
+                  ? ORDER_STATUS_LABELS[entry.status]
+                  : SERVICE_STATUS_LABELS[entry.status];
+                const statusColor =
+                  entry.status === "DELIVERED" || entry.status === "COMPLETED"
+                    ? "bg-[#00D4AA]/10 text-[#00D4AA]"
+                    : entry.status === "CANCELLED"
+                    ? "bg-red-500/10 text-red-400"
+                    : entry.status === "QUOTED"
+                    ? "bg-purple-500/10 text-purple-400"
+                    : "bg-[#FF6B35]/10 text-[#FF6B35]";
+                return (
+                  <div key={entry.id} className="p-4 bg-white/[0.03] border border-white/10 rounded-2xl flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                        isOrder ? "bg-white/5" : isPrint ? "bg-[#FF6B35]/10" : "bg-[#00D4AA]/10"
+                      }`}>
+                        {isOrder
+                          ? <Package size={13} className="text-white/40" />
+                          : isPrint
+                          ? <Zap size={13} className="text-[#FF6B35]" />
+                          : <Scan size={13} className="text-[#00D4AA]" />
+                        }
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-white text-sm font-medium truncate">{entry.label}</p>
+                        <p className="text-white/40 text-xs mt-0.5">
+                          {entry.sub} · {entry.date.toLocaleDateString("tr-TR")}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${statusColor}`}>
+                        {statusLabel}
+                      </span>
+                      {entry.amount !== null && (
+                        <span className="text-white font-semibold text-sm">{formatPrice(entry.amount)}</span>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                      order.status === "DELIVERED" ? "bg-[#00D4AA]/10 text-[#00D4AA]" :
-                      order.status === "CANCELLED" ? "bg-red-500/10 text-red-400" :
-                      "bg-[#FF6B35]/10 text-[#FF6B35]"
-                    }`}>
-                      {ORDER_STATUS_LABELS[order.status]}
-                    </span>
-                    <span className="text-white font-semibold">
-                      {formatPrice(Number(order.totalAmount))}
-                    </span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
 
-        {/* Servis Talepleri */}
+        {/* Teknik Servis Talepleri */}
         <div>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-white font-bold flex items-center gap-2">
               <Wrench size={18} className="text-[#FF6B35]" />
-              Servis Talepleri
+              Teknik Servis Talepleri
             </h2>
             <Link href="/account/service-requests" className="text-[#FF6B35] text-sm hover:underline flex items-center gap-1">
               Tümünü Gör <ChevronRight size={14} />
             </Link>
           </div>
 
-          {serviceRequests.length === 0 ? (
+          {technicalRequests.length === 0 ? (
             <div className="p-6 bg-white/[0.03] border border-white/10 rounded-2xl text-center text-white/40">
-              Henüz servis talebi yok
+              Henüz teknik servis talebi yok
             </div>
           ) : (
             <div className="space-y-3">
-              {serviceRequests.map((sr) => (
+              {technicalRequests.map((sr) => (
                 <div key={sr.id} className="p-4 bg-white/[0.03] border border-white/10 rounded-2xl flex items-center justify-between">
                   <div>
                     <p className="text-white text-sm font-medium">{sr.title}</p>
                     <p className="text-white/40 text-xs mt-1">
-                      {sr.type} · {new Date(sr.createdAt).toLocaleDateString("tr-TR")}
+                      {new Date(sr.createdAt).toLocaleDateString("tr-TR")}
                     </p>
                   </div>
                   <span className={`text-xs px-2 py-1 rounded-full font-medium ${
                     sr.status === "COMPLETED" ? "bg-[#00D4AA]/10 text-[#00D4AA]" :
                     sr.status === "CANCELLED" ? "bg-red-500/10 text-red-400" :
-                    sr.status === "QUOTED" ? "bg-blue-500/10 text-blue-400" :
+                    sr.status === "QUOTED" ? "bg-purple-500/10 text-purple-400" :
                     "bg-[#FF6B35]/10 text-[#FF6B35]"
                   }`}>
                     {SERVICE_STATUS_LABELS[sr.status]}
