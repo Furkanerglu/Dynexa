@@ -116,13 +116,16 @@ export function Navbar() {
             {/* Notifications — sadece giriş yapınca */}
             {session && <NotificationBell />}
 
-            {/* Cart */}
+            {/* Cart — sadece giriş yapılmışsa aktif */}
             <button
-              onClick={toggleCart}
-              className="relative p-2 text-white/70 hover:text-white transition-colors"
+              onClick={session ? toggleCart : () => {}}
+              className={`relative p-2 transition-colors ${
+                session ? "text-white/70 hover:text-white" : "text-white/20 cursor-default"
+              }`}
+              title={session ? "Sepetim" : "Sepeti görmek için giriş yapın"}
             >
               <ShoppingCart size={20} />
-              {itemCount > 0 && (
+              {session && itemCount > 0 && (
                 <span className="absolute -top-1 -right-1 w-5 h-5 bg-[#FF6B35] text-white text-xs font-bold rounded-full flex items-center justify-center">
                   {itemCount}
                 </span>

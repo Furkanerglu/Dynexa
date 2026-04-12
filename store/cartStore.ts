@@ -13,7 +13,8 @@ export interface CartItem {
 interface CartStore {
   items: CartItem[];
   isOpen: boolean;
-  userId: string | null;   // hangi kullanıcının sepeti
+  userId: string | null;
+  userCarts: Record<string, CartItem[]>; // her kullanıcının sepeti
   addItem: (item: Omit<CartItem, "quantity">) => void;
   removeItem: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
@@ -23,7 +24,7 @@ interface CartStore {
   toggleCart: () => void;
   totalItems: () => number;
   totalPrice: () => number;
-  /** Session değişince çağır — farklı kullanıcıysa sepeti sıfırlar */
+  /** Session değişince çağır */
   syncUser: (id: string | null) => void;
 }
 
@@ -33,34 +34,53 @@ export const useCartStore = create<CartStore>()(
       items: [],
       isOpen: false,
       userId: null,
+      userCarts: {},
 
       syncUser: (id) => {
-        const { userId } = get();
-        if (id !== null && userId !== null && userId !== id) {
-          // Farklı kullanıcı girdi → sepeti temizle
-          set({ items: [], isOpen: false, userId: id });
+        const { userId, items, userCarts } = get();
+        if (id === userId) return; // değişiklik yok
+
+        // Mevcut kullanıcının sepetini kaydet
+        const updatedCarts = userId
+          ? { ...userCarts, [userId]: items }
+          : userCarts;
+
+        if (id === null) {
+          // Çıkış yapıldı → sepeti temizle
+          set({ items: [], userId: null, isOpen: false, userCarts: updatedCarts });
         } else {
-          // Aynı kullanıcı yeniden giriş ya da çıkış → sepeti koru, sadece userId güncelle
-          set({ userId: id });
+          // Giriş yapıldı → bu kullanıcının önceki sepetini yükle
+          set({
+            items: updatedCarts[id] ?? [],
+            userId: id,
+            isOpen: false,
+            userCarts: updatedCarts,
+          });
         }
       },
 
       addItem: (item) => {
-        const existing = get().items.find((i) => i.id === item.id);
-        if (existing) {
-          set({
-            items: get().items.map((i) =>
+        const { items, userId, userCarts } = get();
+        const existing = items.find((i) => i.id === item.id);
+        const newItems = existing
+          ? items.map((i) =>
               i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i
-            ),
-          });
-        } else {
-          set({ items: [...get().items, { ...item, quantity: 1 }] });
-        }
-        set({ isOpen: true });
+            )
+          : [...items, { ...item, quantity: 1 }];
+        set({
+          items: newItems,
+          isOpen: true,
+          userCarts: userId ? { ...userCarts, [userId]: newItems } : userCarts,
+        });
       },
 
       removeItem: (id) => {
-        set({ items: get().items.filter((i) => i.id !== id) });
+        const { items, userId, userCarts } = get();
+        const newItems = items.filter((i) => i.id !== id);
+        set({
+          items: newItems,
+          userCarts: userId ? { ...userCarts, [userId]: newItems } : userCarts,
+        });
       },
 
       updateQuantity: (id, quantity) => {
@@ -68,14 +88,23 @@ export const useCartStore = create<CartStore>()(
           get().removeItem(id);
           return;
         }
+        const { items, userId, userCarts } = get();
+        const newItems = items.map((i) =>
+          i.id === id ? { ...i, quantity } : i
+        );
         set({
-          items: get().items.map((i) =>
-            i.id === id ? { ...i, quantity } : i
-          ),
+          items: newItems,
+          userCarts: userId ? { ...userCarts, [userId]: newItems } : userCarts,
         });
       },
 
-      clearCart: () => set({ items: [], userId: null }),
+      clearCart: () => {
+        const { userId, userCarts } = get();
+        set({
+          items: [],
+          userCarts: userId ? { ...userCarts, [userId]: [] } : userCarts,
+        });
+      },
 
       openCart:   () => set({ isOpen: true }),
       closeCart:  () => set({ isOpen: false }),
