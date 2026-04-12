@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Wrench, CheckCircle2, XCircle, ChevronDown, ChevronUp, CreditCard } from "lucide-react";
+import { Wrench, CheckCircle2, XCircle, ChevronDown, ChevronUp, CreditCard, Download } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { formatPrice } from "@/lib/utils";
+import { parseFileEntry, downloadFile } from "@/lib/fileEntry";
 
 // ─── Sabitler ────────────────────────────────────────────────────────────────
 
@@ -122,13 +123,15 @@ function ServiceCard({ sr, onRespond }: {
             <div>
               <p className="text-[11px] text-white/30 uppercase tracking-wide mb-2">Dosyalar</p>
               <div className="flex flex-wrap gap-2">
-                {sr.files.map((url, i) => {
-                  const filename = decodeURIComponent(url.split("/").pop()?.split("?")[0] ?? `dosya-${i + 1}`);
+                {sr.files.map((entry, i) => {
+                  const { url, name } = parseFileEntry(entry);
                   return (
-                    <a key={i} href={url} download={filename}
-                      className="flex items-center gap-1.5 text-xs text-[#FF6B35] bg-[#FF6B35]/10 border border-[#FF6B35]/20 px-2.5 py-1.5 rounded-lg hover:bg-[#FF6B35]/20 transition-colors max-w-[200px]">
-                      <span className="truncate">{filename}</span>
-                    </a>
+                    <button key={i} type="button"
+                      onClick={() => downloadFile(url, name).catch(() => toast.error("İndirme başarısız"))}
+                      className="flex items-center gap-1.5 text-xs text-[#FF6B35] bg-[#FF6B35]/10 border border-[#FF6B35]/20 px-2.5 py-1.5 rounded-lg hover:bg-[#FF6B35]/20 transition-colors max-w-[220px]">
+                      <Download size={11} className="flex-shrink-0" />
+                      <span className="truncate">{name}</span>
+                    </button>
                   );
                 })}
               </div>

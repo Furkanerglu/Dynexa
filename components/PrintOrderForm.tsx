@@ -160,7 +160,10 @@ export function PrintOrderForm() {
           return;
         }
 
-        finalUrls = result.map(r => r.url);
+        // url + orijinal dosya adını birlikte sakla
+        finalUrls = result.map((r, i) =>
+          JSON.stringify({ url: r.url, name: r.name ?? pendingFiles[i]?.name ?? "dosya" })
+        );
         setUploadedUrls(finalUrls);
       }
 

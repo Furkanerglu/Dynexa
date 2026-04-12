@@ -3,7 +3,8 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { formatPrice } from "@/lib/utils";
-import { ChevronDown, ChevronUp, Check, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Check, X, Download } from "lucide-react";
+import { parseFileEntry, downloadFile } from "@/lib/fileEntry";
 
 // ─── Sabitler ────────────────────────────────────────────────────────────────
 
@@ -151,13 +152,15 @@ function ServiceCard({ sr, onUpdate }: { sr: SR; onUpdate: (id: string, patch: o
                 Dosyalar <span className="text-white/20 normal-case">({sr.files.length})</span>
               </p>
               <div className="flex flex-wrap gap-2">
-                {sr.files.map((url, i) => {
-                  const filename = decodeURIComponent(url.split("/").pop()?.split("?")[0] ?? `dosya-${i + 1}`);
+                {sr.files.map((entry, i) => {
+                  const { url, name } = parseFileEntry(entry);
                   return (
-                  <a key={i} href={url} download={filename}
-                    className="flex items-center gap-1.5 text-xs text-[#FF6B35] bg-[#FF6B35]/10 border border-[#FF6B35]/20 px-2.5 py-1.5 rounded-lg hover:bg-[#FF6B35]/20 transition-colors max-w-[200px]">
-                    <span className="truncate">{filename}</span>
-                  </a>
+                    <button key={i} type="button"
+                      onClick={() => downloadFile(url, name).catch(() => toast.error("İndirme başarısız"))}
+                      className="flex items-center gap-1.5 text-xs text-[#FF6B35] bg-[#FF6B35]/10 border border-[#FF6B35]/20 px-2.5 py-1.5 rounded-lg hover:bg-[#FF6B35]/20 transition-colors max-w-[220px]">
+                      <Download size={11} className="flex-shrink-0" />
+                      <span className="truncate">{name}</span>
+                    </button>
                   );
                 })}
               </div>
