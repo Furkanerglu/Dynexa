@@ -23,7 +23,7 @@ const navLinks = [
 
 export function Navbar() {
   const { data: session } = useSession();
-  const totalItems = useCartStore((s) => s.totalItems);
+  const itemCount  = useCartStore((s) => s.items.reduce((sum, i) => sum + i.quantity, 0));
   const toggleCart = useCartStore((s) => s.toggleCart);
   const syncUser   = useCartStore((s) => s.syncUser);
   const [scrolled, setScrolled] = useState(false);
@@ -122,9 +122,9 @@ export function Navbar() {
               className="relative p-2 text-white/70 hover:text-white transition-colors"
             >
               <ShoppingCart size={20} />
-              {totalItems() > 0 && (
+              {itemCount > 0 && (
                 <span className="absolute -top-1 -right-1 w-5 h-5 bg-[#FF6B35] text-white text-xs font-bold rounded-full flex items-center justify-center">
-                  {totalItems()}
+                  {itemCount}
                 </span>
               )}
             </button>

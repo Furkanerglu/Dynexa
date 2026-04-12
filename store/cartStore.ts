@@ -35,9 +35,13 @@ export const useCartStore = create<CartStore>()(
       userId: null,
 
       syncUser: (id) => {
-        if (get().userId !== id) {
-          // Farklı kullanıcı veya çıkış → sepeti temizle
+        const { userId } = get();
+        if (id !== null && userId !== null && userId !== id) {
+          // Farklı kullanıcı girdi → sepeti temizle
           set({ items: [], isOpen: false, userId: id });
+        } else {
+          // Aynı kullanıcı yeniden giriş ya da çıkış → sepeti koru, sadece userId güncelle
+          set({ userId: id });
         }
       },
 
