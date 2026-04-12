@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { notifyOrderStatus } from "@/lib/notifications";
 
 const schema = z.object({
   items: z.array(
@@ -79,6 +80,9 @@ export async function POST(req: NextRequest) {
         data: { stock: { decrement: item.quantity } },
       });
     }
+
+    // Siparişi oluşturulunca müşteriye bildirim gönder
+    await notifyOrderStatus(order.id, session.user.id, "CONFIRMED").catch(console.error);
 
     return NextResponse.json(order, { status: 201 });
   } catch (error) {

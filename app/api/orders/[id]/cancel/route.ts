@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { notifyOrderStatus } from "@/lib/notifications";
 
 // POST /api/orders/[id]/cancel — müşteri siparişi iptal eder
 export async function POST(
@@ -27,6 +28,9 @@ export async function POST(
     where: { id: params.id },
     data: { status: "CANCELLED" },
   });
+
+  // İptal bildirimi gönder
+  await notifyOrderStatus(params.id, session.user.id, "CANCELLED").catch(console.error);
 
   return NextResponse.json(updated);
 }
