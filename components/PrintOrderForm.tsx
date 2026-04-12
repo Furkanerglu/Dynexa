@@ -102,19 +102,26 @@ export function PrintOrderForm() {
   const estimatedPrice = basePrice;
   const overTimeNote   = hours > 2;
 
+  const ALLOWED_EXTS = [".stl", ".3mf", ".step"];
+
+  function isAllowed(file: File) {
+    const name = file.name.toLowerCase();
+    return ALLOWED_EXTS.some(ext => name.endsWith(ext));
+  }
+
   // Dosya ekle (hem sürükle-bırak hem input)
   function addFiles(incoming: File[]) {
-    const stlFiles = incoming.filter(f => f.name.toLowerCase().endsWith(".stl"));
-    if (stlFiles.length !== incoming.length) {
-      toast.error("Sadece .stl uzantılı dosyalar kabul edilir");
+    const valid   = incoming.filter(isAllowed);
+    const invalid = incoming.filter(f => !isAllowed(f));
+    if (invalid.length > 0) {
+      toast.error(`Desteklenmeyen uzantı: ${invalid.map(f => f.name).join(", ")} — Sadece .stl, .3mf, .step kabul edilir`);
     }
-    if (stlFiles.length === 0) return;
+    if (valid.length === 0) return;
     setPendingFiles(prev => {
       const existing = new Set(prev.map(f => f.name));
-      return [...prev, ...stlFiles.filter(f => !existing.has(f.name))];
+      return [...prev, ...valid.filter(f => !existing.has(f.name))];
     });
     setFileError(null);
-    // Yeni dosya eklendi → önceki upload geçersiz
     setUploadedUrls([]);
   }
 
@@ -215,13 +222,13 @@ export function PrintOrderForm() {
           }}
         >
           <Upload size={32} className={`mx-auto mb-3 ${pendingFiles.length > 0 ? "text-[#FF6B35]/60" : "text-white/20"}`} />
-          <p className="text-white/40 text-sm">STL dosyanızı buraya sürükleyin</p>
-          <p className="text-white/20 text-xs mt-1">Maksimum 32 MB · Birden fazla dosya eklenebilir</p>
+          <p className="text-white/40 text-sm">Dosyanızı buraya sürükleyin</p>
+          <p className="text-white/20 text-xs mt-1">.stl · .3mf · .step · Maksimum 32 MB</p>
           <label className="mt-3 inline-block px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-white/60 cursor-pointer hover:bg-white/10 transition-colors">
             Dosya Seç
             <input
               type="file"
-              accept=".stl"
+              accept=".stl,.3mf,.step"
               multiple
               className="hidden"
               onChange={(e) => addFiles(Array.from(e.target.files ?? []))}
