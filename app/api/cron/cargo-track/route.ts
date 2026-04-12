@@ -1,10 +1,7 @@
-/**
- * GET /api/cron/cargo-track
- * Vercel Cron Job — her 2 saatte bir kargodaki siparişlerin durumunu günceller.
- *
- * Vercel'de korumalı: CRON_SECRET env değişkeni ile doğrulanır.
- * vercel.json'da tanımlı: { "path": "/api/cron/cargo-track", "schedule": "0 */2 * * *" }
- */
+// GET /api/cron/cargo-track
+// Vercel Cron Job — her 2 saatte bir kargodaki siparişlerin durumunu günceller.
+// Vercel'de korumalı: CRON_SECRET env değişkeni ile doğrulanır.
+// vercel.json schedule: "0 */2 * * *"
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { trackShipment } from "@/lib/cargo";
