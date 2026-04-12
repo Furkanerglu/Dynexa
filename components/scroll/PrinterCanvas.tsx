@@ -7,67 +7,86 @@ import { LoadingScreen } from "./LoadingScreen";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 
+// ─── Section tanımları ────────────────────────────────────────────────────────
 const SECTIONS = [
   {
     title: "DYNEXA'YA HOŞ GELDİNİZ",
     subtitle: "Türkiye'nin en kapsamlı 3D baskı platformu — tek adreste her şey",
     color: "#FF6B35",
-    frameStart: 0,
-    frameEnd: 7,
+    progressStart: 0.00,
+    progressEnd:   0.20,
     cta: null,
   },
   {
     title: "PARÇANIZI BİZ BASIYORUZ",
     subtitle: "STL dosyanızı yükleyin, malzeme ve kaliteyi seçin — gerisini biz halledelim",
     color: "#FF6B35",
-    frameStart: 8,
-    frameEnd: 15,
+    progressStart: 0.20,
+    progressEnd:   0.40,
     cta: { label: "Baskı Talebi Oluştur", href: "/services/print" },
   },
   {
     title: "HAZIR PARÇALAR, ANINDA TESLİM",
     subtitle: "Stokta yüzlerce hazır 3D baskı parça — sipariş ver, kapında olsun",
     color: "#00D4AA",
-    frameStart: 16,
-    frameEnd: 23,
+    progressStart: 0.40,
+    progressEnd:   0.60,
     cta: { label: "Mağazaya Gözat", href: "/shop" },
   },
   {
     title: "TEKNİK SERVİS YANINDA",
     subtitle: "Yazıcınız mı bozuldu? Uzman ekibimiz onarım ve bakımda her zaman hazır",
     color: "#00D4AA",
-    frameStart: 24,
-    frameEnd: 31,
+    progressStart: 0.60,
+    progressEnd:   0.80,
     cta: { label: "Servis Talebi Oluştur", href: "/services/technical" },
   },
   {
     title: "HER ŞEY DYNEXA'DA",
     subtitle: "Filament, yedek parça, baskı ve servis — 3D baskının tek durağı",
     color: "#FF6B35",
-    frameStart: 32,
-    frameEnd: 39,
+    progressStart: 0.80,
+    progressEnd:   1.00,
     cta: { label: "Platformu Keşfet", href: "/shop" },
   },
 ];
 
-const SECTION_COUNT = SECTIONS.length;
-const SECTION_FRAMES = SECTIONS.map((s) => Math.round((s.frameStart + s.frameEnd) / 2));
-const TRANSITION_DURATION = 800;
+const SECTION_COUNT  = SECTIONS.length;
+const TOTAL_FRAMES   = 40;
+// Sayfa kaç vh yüksekliğinde (scroll mesafesi)
+const SCROLL_PAGES   = 6;
+
+// Progress değerine göre hangi section aktif?
+function getSectionIndex(progress: number): number {
+  for (let i = SECTION_COUNT - 1; i >= 0; i--) {
+    if (progress >= SECTIONS[i].progressStart) return i;
+  }
+  return 0;
+}
+
+// Section içindeki lokal ilerleme (0-1) — text fade için
+function getSectionProgress(progress: number, idx: number): number {
+  const s = SECTIONS[idx];
+  return Math.min(1, Math.max(0, (progress - s.progressStart) / (s.progressEnd - s.progressStart)));
+}
 
 export function PrinterCanvas() {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const canvasRef    = useRef<HTMLCanvasElement>(null);
-  const offscreenRef = useRef<HTMLCanvasElement | null>(null);
+  const containerRef  = useRef<HTMLDivElement>(null);
+  const canvasRef     = useRef<HTMLCanvasElement>(null);
+  const offscreenRef  = useRef<HTMLCanvasElement | null>(null);
 
-  const { images, progress: loadProgress, isLoaded } = useImagePreloader(40);
+  const { images, progress: loadProgress, isLoaded } = useImagePreloader(TOTAL_FRAMES);
 
   const [activeSection, setActiveSection] = useState(0);
-  const activeSectionRef   = useRef(0);
-  const isTransitioningRef = useRef(false);
-  const currentFrameRef    = useRef(0);
-  const animRafRef         = useRef<number>(0);
+  const activeSectionRef = useRef(0);
 
-  // ─── Offscreen canvas boyutlandır (sadece resize'da) ──────────────
+  // Scroll-driven frame state (RAF loop)
+  const targetFrameRef  = useRef(0);
+  const currentFrameRef = useRef(0);
+  const rafRef          = useRef<number>(0);
+  const isRafRunning    = useRef(false);
+
+  // ─── Canvas resize (sadece mount + resize) ───────────────────────
   const resizeCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -76,20 +95,19 @@ export function PrinterCanvas() {
     if (canvas.width === w && canvas.height === h) return;
     canvas.width  = w;
     canvas.height = h;
-
     if (!offscreenRef.current) offscreenRef.current = document.createElement("canvas");
     offscreenRef.current.width  = w;
     offscreenRef.current.height = h;
   }, []);
 
-  // ─── Canvas çizim (boyut DEĞİŞTİRMEDEN) ─────────────────────────
+  // ─── Tek frame çizimi (boyut değiştirmeden) ──────────────────────
   const drawFrame = useCallback(
     (frameIdx: number) => {
-      const canvas = canvasRef.current;
+      const canvas    = canvasRef.current;
       const offscreen = offscreenRef.current;
       if (!canvas || !offscreen || images.length === 0) return;
 
-      const ctx = canvas.getContext("2d", { alpha: false });
+      const ctx    = canvas.getContext("2d",    { alpha: false });
       const offCtx = offscreen.getContext("2d", { alpha: false });
       if (!ctx || !offCtx) return;
 
@@ -100,84 +118,87 @@ export function PrinterCanvas() {
       const w = canvas.width;
       const h = canvas.height;
 
-      // Offscreen'e çiz (double buffering)
       offCtx.fillStyle = "#020202";
       offCtx.fillRect(0, 0, w, h);
 
-      const imgAspect    = img.naturalWidth  / img.naturalHeight;
+      const imgAspect    = (img.naturalWidth  || img.width)  / (img.naturalHeight || img.height);
       const canvasAspect = w / h;
       let dw: number, dh: number, dx: number, dy: number;
 
       if (imgAspect > canvasAspect) {
-        dh = h;
-        dw = dh * imgAspect;
-        dx = (w - dw) / 2;
-        dy = 0;
+        dh = h; dw = dh * imgAspect;
+        dx = (w - dw) / 2; dy = 0;
       } else {
-        dw = w;
-        dh = dw / imgAspect;
-        dx = 0;
-        dy = (h - dh) / 2;
+        dw = w; dh = dw / imgAspect;
+        dx = 0; dy = (h - dh) / 2;
       }
 
       offCtx.drawImage(img, dx, dy, dw, dh);
-
-      // Tek seferde ekrana kopyala
       ctx.drawImage(offscreen, 0, 0);
       currentFrameRef.current = frameIdx;
     },
     [images]
   );
 
-  // ─── Kare animasyonu (RAF tabanlı, smooth) ────────────────────────
-  const animateToFrame = useCallback(
-    (targetFrame: number) => {
-      if (animRafRef.current) cancelAnimationFrame(animRafRef.current);
+  // ─── RAF döngüsü: target'a doğru lerp ────────────────────────────
+  const startRaf = useCallback(() => {
+    if (isRafRunning.current) return;
+    isRafRunning.current = true;
 
-      const startFrame = currentFrameRef.current;
-      const diff = targetFrame - startFrame;
-      if (Math.abs(diff) < 0.5) return;
+    const loop = () => {
+      const diff = targetFrameRef.current - currentFrameRef.current;
 
-      const duration  = 500;
-      const startTime = performance.now();
+      if (Math.abs(diff) < 0.05) {
+        // Hedefe ulaştık, tam frame'e snap et
+        drawFrame(targetFrameRef.current);
+        isRafRunning.current = false;
+        return;
+      }
 
-      const step = (now: number) => {
-        const t      = Math.min(1, (now - startTime) / duration);
-        // ease-out cubic — başta hızlı, sonda yavaşlar
-        const eased  = 1 - Math.pow(1 - t, 3);
-        drawFrame(startFrame + diff * eased);
-        if (t < 1) animRafRef.current = requestAnimationFrame(step);
-      };
+      // Hızlı yaklaşım — lerp faktörü 0.18 (çok hızlı hissettirirse 0.12'ye düşür)
+      const next = currentFrameRef.current + diff * 0.18;
+      drawFrame(next);
+      rafRef.current = requestAnimationFrame(loop);
+    };
 
-      animRafRef.current = requestAnimationFrame(step);
-    },
-    [drawFrame]
-  );
+    rafRef.current = requestAnimationFrame(loop);
+  }, [drawFrame]);
 
-  // ─── Section scroll pozisyonu ─────────────────────────────────────
-  const scrollToSection = useCallback((idx: number) => {
-    if (!containerRef.current) return;
-    const containerTop = containerRef.current.getBoundingClientRect().top + window.scrollY;
-    window.scrollTo({
-      top:      containerTop + idx * window.innerHeight,
-      behavior: "smooth",
-    });
-  }, []);
+  // ─── Scroll handler ───────────────────────────────────────────────
+  useEffect(() => {
+    if (!isLoaded) return;
 
-  // ─── Section geçişi ───────────────────────────────────────────────
-  const goToSection = useCallback(
-    (idx: number) => {
-      const clamped = Math.max(0, Math.min(SECTION_COUNT - 1, idx));
-      if (clamped === activeSectionRef.current) return;
-      activeSectionRef.current = clamped;
-      setActiveSection(clamped);
-      scrollToSection(clamped);
-      animateToFrame(SECTION_FRAMES[clamped]);
-    },
-    [scrollToSection, animateToFrame]
-  );
+    const handleScroll = () => {
+      const container = containerRef.current;
+      if (!container) return;
 
-  // ─── İlk render + resize ──────────────────────────────────────────
+      const containerTop    = container.offsetTop;
+      const containerHeight = container.offsetHeight;
+      const scrollRange     = containerHeight - window.innerHeight;
+      const scrolled        = Math.max(0, window.scrollY - containerTop);
+      const progress        = Math.min(1, scrolled / scrollRange);
+
+      // Hedef frame
+      targetFrameRef.current = progress * (TOTAL_FRAMES - 1);
+
+      // Section güncelle
+      const secIdx = getSectionIndex(progress);
+      if (secIdx !== activeSectionRef.current) {
+        activeSectionRef.current = secIdx;
+        setActiveSection(secIdx);
+      }
+
+      startRaf();
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    // İlk render: scroll pozisyona göre başlat
+    handleScroll();
+
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [isLoaded, startRaf]);
+
+  // ─── Mount / resize ───────────────────────────────────────────────
   useEffect(() => {
     resizeCanvas();
   }, [resizeCanvas]);
@@ -185,138 +206,17 @@ export function PrinterCanvas() {
   useEffect(() => {
     if (isLoaded && images.length > 0) {
       resizeCanvas();
-      drawFrame(SECTION_FRAMES[0]);
+      drawFrame(0);
     }
   }, [isLoaded, images, drawFrame, resizeCanvas]);
 
-  // ─── Wheel ────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!isLoaded) return;
-
-    let wheelAccum = 0;
-    let wheelTimer: ReturnType<typeof setTimeout> | null = null;
-
-    const handleWheel = (e: WheelEvent) => {
-      if (!containerRef.current) return;
-      const rect = containerRef.current.getBoundingClientRect();
-      const isActive = rect.top <= 2 && rect.bottom > window.innerHeight - 2;
-      if (!isActive) return;
-
-      e.preventDefault();
-
-      // Accumulate wheel delta to debounce trackpad micro-scrolls
-      wheelAccum += e.deltaY;
-      if (wheelTimer) clearTimeout(wheelTimer);
-
-      wheelTimer = setTimeout(() => {
-        if (Math.abs(wheelAccum) < 20) { wheelAccum = 0; return; }
-        const direction = wheelAccum > 0 ? 1 : -1;
-        wheelAccum = 0;
-
-        const current = activeSectionRef.current;
-
-        if (direction > 0 && current >= SECTION_COUNT - 1) {
-          if (!isTransitioningRef.current) {
-            isTransitioningRef.current = true;
-            const containerTop = containerRef.current!.getBoundingClientRect().top + window.scrollY;
-            window.scrollTo({ top: containerTop + SECTION_COUNT * window.innerHeight, behavior: "smooth" });
-            setTimeout(() => { isTransitioningRef.current = false; }, TRANSITION_DURATION);
-          }
-          return;
-        }
-        if (direction < 0 && current <= 0) {
-          if (!isTransitioningRef.current) {
-            isTransitioningRef.current = true;
-            const containerTop = containerRef.current!.getBoundingClientRect().top + window.scrollY;
-            window.scrollTo({ top: containerTop, behavior: "smooth" });
-            setTimeout(() => { isTransitioningRef.current = false; }, TRANSITION_DURATION);
-          }
-          return;
-        }
-
-        if (isTransitioningRef.current) return;
-        isTransitioningRef.current = true;
-        goToSection(current + direction);
-        setTimeout(() => { isTransitioningRef.current = false; }, TRANSITION_DURATION);
-      }, 50);
-    };
-
-    window.addEventListener("wheel", handleWheel, { passive: false });
-    return () => {
-      window.removeEventListener("wheel", handleWheel);
-      if (wheelTimer) clearTimeout(wheelTimer);
-    };
-  }, [isLoaded, goToSection]);
-
-  // ─── Touch ────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!isLoaded) return;
-    let touchStartY = 0;
-
-    const handleTouchStart = (e: TouchEvent) => { touchStartY = e.touches[0].clientY; };
-
-    const handleTouchEnd = (e: TouchEvent) => {
-      if (!containerRef.current) return;
-      const rect = containerRef.current.getBoundingClientRect();
-      if (!(rect.top <= 2 && rect.bottom > window.innerHeight - 2)) return;
-
-      const deltaY = touchStartY - e.changedTouches[0].clientY;
-      if (Math.abs(deltaY) < 40) return;
-
-      const direction = deltaY > 0 ? 1 : -1;
-      const current   = activeSectionRef.current;
-      if (isTransitioningRef.current) return;
-      isTransitioningRef.current = true;
-
-      if (direction > 0 && current >= SECTION_COUNT - 1) {
-        const containerTop = containerRef.current.getBoundingClientRect().top + window.scrollY;
-        window.scrollTo({ top: containerTop + SECTION_COUNT * window.innerHeight, behavior: "smooth" });
-      } else if (direction < 0 && current <= 0) {
-        const containerTop = containerRef.current.getBoundingClientRect().top + window.scrollY;
-        window.scrollTo({ top: containerTop, behavior: "smooth" });
-      } else {
-        goToSection(current + direction);
-      }
-
-      setTimeout(() => { isTransitioningRef.current = false; }, TRANSITION_DURATION);
-    };
-
-    window.addEventListener("touchstart", handleTouchStart, { passive: true });
-    window.addEventListener("touchend",   handleTouchEnd,   { passive: true });
-    return () => {
-      window.removeEventListener("touchstart", handleTouchStart);
-      window.removeEventListener("touchend",   handleTouchEnd);
-    };
-  }, [isLoaded, goToSection]);
-
-  // ─── Scrollbar sync ───────────────────────────────────────────────
-  useEffect(() => {
-    const handleScroll = () => {
-      if (!containerRef.current || isTransitioningRef.current) return;
-      const containerTop = containerRef.current.offsetTop;
-      const scrolled     = window.scrollY - containerTop;
-      const sectionIdx   = Math.round(scrolled / window.innerHeight);
-      const clamped      = Math.max(0, Math.min(SECTION_COUNT - 1, sectionIdx));
-
-      if (clamped !== activeSectionRef.current) {
-        activeSectionRef.current = clamped;
-        setActiveSection(clamped);
-        drawFrame(SECTION_FRAMES[clamped]);
-      }
-    };
-
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, [drawFrame]);
-
-  // ─── Resize ───────────────────────────────────────────────────────
-  useEffect(() => {
-    const handleResize = () => {
+    const onResize = () => {
       resizeCanvas();
       drawFrame(currentFrameRef.current);
     };
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
   }, [resizeCanvas, drawFrame]);
 
   const section = SECTIONS[activeSection];
@@ -325,11 +225,13 @@ export function PrinterCanvas() {
     <>
       <LoadingScreen progress={loadProgress} isLoaded={isLoaded} />
 
+      {/* Scroll alanı */}
       <div
         ref={containerRef}
         className="relative"
-        style={{ height: `${SECTION_COUNT * 100}vh` }}
+        style={{ height: `${SCROLL_PAGES * 100}vh` }}
       >
+        {/* Sticky canvas */}
         <div className="sticky top-0 h-screen w-full overflow-hidden">
           <canvas
             ref={canvasRef}
@@ -338,16 +240,16 @@ export function PrinterCanvas() {
           />
 
           {/* Alt gradient */}
-          <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-[#020202] to-transparent pointer-events-none" />
+          <div className="absolute inset-x-0 bottom-0 h-52 bg-gradient-to-t from-[#020202] to-transparent pointer-events-none" />
 
           {/* Section metni */}
           <AnimatePresence mode="wait">
             <motion.div
               key={activeSection}
-              initial={{ opacity: 0, y: 24, filter: "blur(12px)" }}
+              initial={{ opacity: 0, y: 28, filter: "blur(14px)" }}
               animate={{ opacity: 1, y: 0,  filter: "blur(0px)"  }}
-              exit={{    opacity: 0, y: -16, filter: "blur(8px)"  }}
-              transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+              exit={{    opacity: 0, y: -18, filter: "blur(10px)" }}
+              transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
               className="absolute inset-0 flex flex-col items-center justify-end pb-24 px-6 text-center pointer-events-none"
             >
               <div className="max-w-3xl w-full">
@@ -359,12 +261,11 @@ export function PrinterCanvas() {
                   {section.subtitle}
                 </p>
 
-                {/* CTA butonu */}
                 {section.cta && (
                   <div className="pointer-events-auto flex justify-center mb-8">
                     <Link
                       href={section.cta.href}
-                      className="inline-flex items-center gap-2 px-7 py-3.5 rounded-xl font-semibold text-sm transition-all"
+                      className="inline-flex items-center gap-2 px-7 py-3.5 rounded-xl font-semibold text-sm transition-all hover:opacity-90 active:scale-95"
                       style={{
                         background: section.color,
                         color: section.color === "#00D4AA" ? "#000" : "#fff",
@@ -398,13 +299,11 @@ export function PrinterCanvas() {
           {/* Scroll göstergesi */}
           <motion.div
             className="absolute bottom-7 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5 pointer-events-none"
-            animate={{ opacity: [0.35, 0.9, 0.35], y: [0, 6, 0] }}
-            transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
+            animate={{ opacity: [0.35, 0.85, 0.35], y: [0, 6, 0] }}
+            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
           >
-            <span className="text-white/35 text-[10px] tracking-widest uppercase">
-              {activeSection === SECTION_COUNT - 1 ? "Kaydır" : "Kaydır"}
-            </span>
-            <div className="w-[1px] h-8 bg-gradient-to-b from-white/40 to-transparent" />
+            <span className="text-white/35 text-[10px] tracking-widest uppercase">Kaydır</span>
+            <div className="w-[1px] h-7 bg-gradient-to-b from-white/40 to-transparent" />
           </motion.div>
         </div>
       </div>
