@@ -27,32 +27,22 @@ function ShipModal({ order, onClose, onShipped }: {
   onClose: () => void;
   onShipped: (orderId: string, provider: string, trackingNumber: string) => void;
 }) {
-  const [provider,  setProvider]  = useState<"YURTICI" | "HEPSIJET">("YURTICI");
-  const [weightKg,  setWeightKg]  = useState("1");
-  const [desi,      setDesi]      = useState("");
-  const [manualNo,  setManualNo]  = useState("");
-  const [useManual, setUseManual] = useState(false);
-  const [loading,   setLoading]   = useState(false);
+  const [provider,       setProvider]       = useState<"YURTICI" | "HEPSIJET" | "OTHER">("YURTICI");
+  const [trackingNumber, setTrackingNumber] = useState("");
+  const [loading,        setLoading]        = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!trackingNumber.trim()) { toast.error("Takip numarası giriniz"); return; }
     setLoading(true);
     try {
-      const body: Record<string, unknown> = {
-        provider,
-        weightKg: parseFloat(weightKg) || 1,
-        desi:     desi ? parseFloat(desi) : undefined,
-      };
-      if (useManual && manualNo.trim()) body.manualTrackingNumber = manualNo.trim();
-
       const res  = await fetch(`/api/admin/orders/${order.id}/ship`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ provider, trackingNumber: trackingNumber.trim() }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Kargo oluşturulamadı");
-
+      if (!res.ok) throw new Error(data.error ?? "Kargoya verilemedi");
       toast.success(`Kargoya verildi — Takip: ${data.trackingNumber}`);
       onShipped(order.id, data.provider, data.trackingNumber);
       onClose();
@@ -64,13 +54,14 @@ function ShipModal({ order, onClose, onShipped }: {
   }
 
   const PROVIDERS = [
-    { value: "YURTICI",  label: "Yurtiçi Kargo",  color: "border-red-500/40 bg-red-500/10 text-red-300" },
-    { value: "HEPSIJET", label: "HepsiJet",        color: "border-orange-500/40 bg-orange-500/10 text-orange-300" },
+    { value: "YURTICI",  label: "Yurtiçi Kargo", color: "border-red-500/40 bg-red-500/10 text-red-300" },
+    { value: "HEPSIJET", label: "HepsiJet",       color: "border-orange-500/40 bg-orange-500/10 text-orange-300" },
+    { value: "OTHER",    label: "Diğer",           color: "border-white/30 bg-white/10 text-white/70" },
   ] as const;
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-      <div className="bg-[#0a0a0a] border border-white/10 rounded-2xl w-full max-w-md">
+      <div className="bg-[#0a0a0a] border border-white/10 rounded-2xl w-full max-w-sm">
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
           <div className="flex items-center gap-2">
             <Truck size={16} className="text-[#FF6B35]" />
@@ -91,12 +82,12 @@ function ShipModal({ order, onClose, onShipped }: {
 
           {/* Kargo firması */}
           <div>
-            <p className="text-white/60 text-sm mb-2">Kargo Firması</p>
-            <div className="grid grid-cols-2 gap-2">
+            <p className="text-white/60 text-xs mb-2 uppercase tracking-wide">Kargo Firması</p>
+            <div className="grid grid-cols-3 gap-2">
               {PROVIDERS.map(p => (
                 <button key={p.value} type="button"
                   onClick={() => setProvider(p.value)}
-                  className={`px-4 py-3 rounded-xl border text-sm font-semibold transition-all ${
+                  className={`px-3 py-2.5 rounded-xl border text-xs font-semibold transition-all ${
                     provider === p.value ? p.color : "border-white/10 bg-white/5 text-white/40 hover:text-white"
                   }`}>
                   {p.label}
@@ -105,44 +96,23 @@ function ShipModal({ order, onClose, onShipped }: {
             </div>
           </div>
 
-          {/* Ağırlık / Desi */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-white/60 text-xs mb-1.5 block">Ağırlık (kg) *</label>
-              <input type="number" step="0.1" min="0.1" value={weightKg} onChange={e => setWeightKg(e.target.value)} required
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#FF6B35]/60" />
-            </div>
-            <div>
-              <label className="text-white/60 text-xs mb-1.5 block">Desi (opsiyonel)</label>
-              <input type="number" step="0.1" min="0" value={desi} onChange={e => setDesi(e.target.value)} placeholder="Boş = ağırlık"
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#FF6B35]/60 placeholder:text-white/20" />
-            </div>
-          </div>
-
-          {/* Manuel takip no toggle */}
+          {/* Takip numarası */}
           <div>
-            <label className="flex items-center gap-2 cursor-pointer mb-2">
-              <input type="checkbox" checked={useManual} onChange={e => setUseManual(e.target.checked)} className="sr-only peer" />
-              <div className="w-8 h-4 bg-white/10 rounded-full peer-checked:bg-[#FF6B35] transition-colors relative flex-shrink-0">
-                <div className="absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full transition-transform peer-checked:translate-x-4" />
-              </div>
-              <span className="text-white/60 text-xs">Manuel takip numarası gir</span>
-            </label>
-            {useManual && (
-              <input value={manualNo} onChange={e => setManualNo(e.target.value)}
-                placeholder="Takip numarası"
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#FF6B35]/60 placeholder:text-white/20" />
-            )}
-            {!useManual && (
-              <p className="text-white/25 text-xs">Kargo API üzerinden otomatik oluşturulacak</p>
-            )}
+            <label className="text-white/60 text-xs mb-1.5 block uppercase tracking-wide">Takip Numarası *</label>
+            <input
+              value={trackingNumber}
+              onChange={e => setTrackingNumber(e.target.value)}
+              placeholder="Kargo takip numarasını girin"
+              required
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#FF6B35]/60 placeholder:text-white/20"
+            />
           </div>
 
           <div className="flex gap-3 pt-2 border-t border-white/10">
             <button type="submit" disabled={loading}
               className="flex-1 flex items-center justify-center gap-2 bg-[#FF6B35] hover:bg-[#e55a28] disabled:opacity-50 text-white font-semibold text-sm py-3 rounded-xl transition-colors">
               {loading ? <Loader2 size={15} className="animate-spin" /> : <Truck size={15} />}
-              {loading ? "Kargo oluşturuluyor..." : "Kargoya Ver"}
+              {loading ? "Kaydediliyor..." : "Kargoya Ver"}
             </button>
             <button type="button" onClick={onClose}
               className="px-5 py-3 border border-white/10 text-white/50 hover:text-white rounded-xl transition-colors text-sm">

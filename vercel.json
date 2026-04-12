@@ -1,8 +1,1 @@
-{
-  "crons": [
-    {
-      "path": "/api/cron/cargo-track",
-      "schedule": "0 */2 * * *"
-    }
-  ]
-}
+{}
