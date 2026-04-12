@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { notifyServiceStatus } from "@/lib/notifications";
 
 const schema = z.object({
   status: z
@@ -44,6 +45,12 @@ export async function PATCH(
       where: { id: params.id },
       data: updateData,
     });
+
+    // Durum değiştiyse müşteriye bildirim gönder
+    const newStatus = data.status;
+    if (newStatus && newStatus !== existing.status) {
+      await notifyServiceStatus(params.id, existing.userId, newStatus).catch(console.error);
+    }
 
     return NextResponse.json(updated);
   } catch (error) {

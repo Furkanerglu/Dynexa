@@ -20,9 +20,10 @@ model User {
   orders       Order[]
   cart         CartItem[]
   serviceReqs  ServiceRequest[]
-  reviews      Review[]
-  accounts     Account[]
-  createdAt    DateTime         @default(now())
+  reviews        Review[]
+  accounts       Account[]
+  notifications  Notification[]
+  createdAt      DateTime         @default(now())
 }
 
 enum Role {
@@ -187,4 +188,23 @@ model Review {
   rating    Int
   comment   String?
   createdAt DateTime @default(now())
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  body      String
+  type      NotificationType @default(INFO)
+  read      Boolean          @default(false)
+  link      String?
+  createdAt DateTime         @default(now())
+}
+
+enum NotificationType {
+  ORDER_STATUS
+  SERVICE_STATUS
+  DISCOUNT
+  INFO
 }

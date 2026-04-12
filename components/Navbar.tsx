@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useCartStore } from "@/store/cartStore";
 import { ShoppingCart, User, Menu, X, ChevronDown } from "lucide-react";
+import { NotificationBell } from "@/components/NotificationBell";
 import { motion, AnimatePresence } from "framer-motion";
 
 const navLinks = [
@@ -106,6 +107,9 @@ export function Navbar() {
 
           {/* Right icons */}
           <div className="flex items-center gap-4">
+            {/* Notifications — sadece giriş yapınca */}
+            {session && <NotificationBell />}
+
             {/* Cart */}
             <button
               onClick={toggleCart}

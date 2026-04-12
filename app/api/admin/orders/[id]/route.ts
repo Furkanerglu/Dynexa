@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { notifyOrderStatus } from "@/lib/notifications";
 
 const schema = z.object({
   status: z.enum(["PENDING", "CONFIRMED", "PREPARING", "SHIPPED", "DELIVERED", "CANCELLED"]),
@@ -35,6 +36,11 @@ export async function PATCH(
       where: { id: params.id },
       data: { status },
     });
+
+    // Durum değiştiyse müşteriye bildirim gönder
+    if (order.status !== status) {
+      await notifyOrderStatus(params.id, order.userId, status).catch(console.error);
+    }
 
     return NextResponse.json(updated);
   } catch (error) {

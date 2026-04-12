@@ -362,3 +362,17 @@ The canvas background must be #020202 to blend seamlessly with the frame edges.
 14. `.env.example` and `README.md`
 
 Start building now. Output complete, working code files one by one. Do not summarize or skip any file.
+
+---
+
+## WORKFLOW — DEPLOYMENT
+
+**CRITICAL: Her lokal değişiklikten sonra otomatik olarak commit + push yap. Kullanıcının hatırlatmasını bekleme.**
+- `git add <değişen dosyalar> && git commit -m "..." && git push` — her değişiklik sonrası.
+- Redeploy'u kullanıcı kendisi yapar. "Redeploy et", "Vercel'den deploy al" gibi yönlendirmeler yapma.
+- Commit mesajları kısa ve açıklayıcı olsun (Türkçe veya İngilizce).
+- Her oturumun sonunda `git status` çalıştır — uncommitted değişiklik kalmamalı.
+
+## EMAIL (Resend)
+
+**Resend email entegrasyonu şu an devre dışı.** `lib/email.ts` dosyası mevcut ama email gönderme çağrıları API route'lardan kaldırıldı. İleride eklenecek. Yeni özellik yazarken email tetikleme kodu ekleme.
