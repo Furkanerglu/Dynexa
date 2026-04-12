@@ -3,7 +3,8 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { formatPrice } from "@/lib/utils";
-import { ChevronDown, ChevronUp, Check, ShoppingCart, Zap, Scan, Truck, X, Loader2, ExternalLink } from "lucide-react";
+import { ChevronDown, ChevronUp, Check, ShoppingCart, Zap, Scan, Truck, X, Loader2, ExternalLink, Download } from "lucide-react";
+import { parseFileEntry, downloadFile } from "@/lib/fileEntry";
 
 // ─── Tipler ──────────────────────────────────────────────────────────────────
 
@@ -300,14 +301,21 @@ function SRCard({ sr, onUpdate }: { sr: SR; onUpdate: (id: string, patch: object
 
           {sr.files.length > 0 && (
             <div>
-              <p className="text-[11px] text-white/30 uppercase tracking-wide mb-2">Dosyalar</p>
+              <p className="text-[11px] text-white/30 uppercase tracking-wide mb-2">
+                Dosyalar <span className="text-white/20 normal-case">({sr.files.length})</span>
+              </p>
               <div className="flex flex-wrap gap-2">
-                {sr.files.map((url, i) => (
-                  <a key={i} href={url} target="_blank" rel="noreferrer"
-                    className="text-xs text-[#FF6B35] bg-[#FF6B35]/10 border border-[#FF6B35]/20 px-2.5 py-1 rounded-lg hover:underline">
-                    Dosya {i + 1}
-                  </a>
-                ))}
+                {sr.files.map((entry, i) => {
+                  const { url, name } = parseFileEntry(entry);
+                  return (
+                    <button key={i} type="button"
+                      onClick={() => downloadFile(url, name).catch(() => toast.error("İndirme başarısız"))}
+                      className="flex items-center gap-1.5 text-xs text-[#FF6B35] bg-[#FF6B35]/10 border border-[#FF6B35]/20 px-2.5 py-1.5 rounded-lg hover:bg-[#FF6B35]/20 transition-colors max-w-[220px]">
+                      <Download size={11} className="flex-shrink-0" />
+                      <span className="truncate">{name}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
