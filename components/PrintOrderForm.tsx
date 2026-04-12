@@ -5,12 +5,12 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Upload, FileText, Loader2, X, AlertTriangle, Clock, Info } from "lucide-react";
+import { Upload, FileText, Loader2, X, AlertTriangle, Clock, Info, CheckCircle2 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { useUploadThing } from "@/lib/uploadthing-client";
 
 // ─── Fiyatlandırma ───────────────────────────────────────────────────────────
-// Gram başı baz fiyat (₺)
 const MATERIAL_PRICES: Record<string, number> = {
   PLA:  7,
   PETG: 7,
@@ -64,8 +64,16 @@ type FormData = z.infer<typeof schema>;
 export function PrintOrderForm() {
   const { data: session } = useSession();
   const router = useRouter();
-  const [files,   setFiles]   = useState<File[]>([]);
-  const [loading, setLoading] = useState(false);
+
+  // Seçilen dosyalar (henüz upload edilmemiş)
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  // Upload tamamlanan URL'ler
+  const [uploadedUrls, setUploadedUrls] = useState<string[]>([]);
+  const [uploading,    setUploading]    = useState(false);
+  const [submitting,   setSubmitting]   = useState(false);
+  const [fileError,    setFileError]    = useState<string | null>(null);
+
+  const { startUpload } = useUploadThing("serviceFiles");
 
   const {
     register,
@@ -90,20 +98,65 @@ export function PrintOrderForm() {
   const hours   = watch("estimatedHours")  || 0;
   const needs   = watch("needsSupports");
 
-  // Tahmini fiyat hesabı
-  const basePrice    = MATERIAL_PRICES[mat] * (QUALITY_MULTIPLIERS[quality] || 1.5) * weight;
-  const supportsNote = needs; // sadece bilgilendirme
-  const overTimeNote = hours > 2; // 2+ saat → saatlik ücret uyarısı
+  const basePrice      = MATERIAL_PRICES[mat] * (QUALITY_MULTIPLIERS[quality] || 1.5) * weight;
   const estimatedPrice = basePrice;
+  const overTimeNote   = hours > 2;
 
+  // Dosya ekle (hem sürükle-bırak hem input)
+  function addFiles(incoming: File[]) {
+    const stlFiles = incoming.filter(f => f.name.toLowerCase().endsWith(".stl"));
+    if (stlFiles.length !== incoming.length) {
+      toast.error("Sadece .stl uzantılı dosyalar kabul edilir");
+    }
+    if (stlFiles.length === 0) return;
+    setPendingFiles(prev => {
+      const existing = new Set(prev.map(f => f.name));
+      return [...prev, ...stlFiles.filter(f => !existing.has(f.name))];
+    });
+    setFileError(null);
+    // Yeni dosya eklendi → önceki upload geçersiz
+    setUploadedUrls([]);
+  }
+
+  function removeFile(index: number) {
+    setPendingFiles(prev => prev.filter((_, i) => i !== index));
+    setUploadedUrls([]);
+  }
+
+  // Önce dosyaları UploadThing'e yükle, sonra form verisini gönder
   const onSubmit = async (data: FormData) => {
     if (!session) {
       toast.error("Lütfen önce giriş yapın");
       router.push("/login");
       return;
     }
-    setLoading(true);
+
+    // STL zorunlu kontrolü
+    if (pendingFiles.length === 0 && uploadedUrls.length === 0) {
+      setFileError("En az bir STL dosyası yüklemeniz zorunludur");
+      return;
+    }
+
+    setSubmitting(true);
     try {
+      let finalUrls = uploadedUrls;
+
+      // Upload edilmemiş dosyalar varsa şimdi yükle
+      if (pendingFiles.length > 0 && uploadedUrls.length === 0) {
+        setUploading(true);
+        const result = await startUpload(pendingFiles);
+        setUploading(false);
+
+        if (!result || result.length === 0) {
+          toast.error("Dosya yüklenemedi, lütfen tekrar deneyin");
+          setSubmitting(false);
+          return;
+        }
+
+        finalUrls = result.map(r => r.url);
+        setUploadedUrls(finalUrls);
+      }
+
       const res = await fetch("/api/services", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
@@ -119,52 +172,97 @@ export function PrintOrderForm() {
             estimatedHours:  data.estimatedHours ?? 0,
             needsSupports:   data.needsSupports ?? false,
           },
-          files: [],
+          files: finalUrls,
         }),
       });
+
       if (!res.ok) throw new Error("Talep gönderilemedi");
       toast.success("Baskı talebiniz alındı! En kısa sürede fiyat teklifi sunacağız.");
       router.push("/account/service-requests");
     } catch {
       toast.error("Bir hata oluştu, lütfen tekrar deneyin");
     } finally {
-      setLoading(false);
+      setSubmitting(false);
+      setUploading(false);
     }
   };
+
+  const isProcessing = uploading || submitting;
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
 
-      {/* STL Yükleme */}
+      {/* ── STL Yükleme (Zorunlu) ──────────────────────────────────────────── */}
       <div>
-        <label className="text-white/60 text-sm mb-2 block">STL Dosyası (isteğe bağlı)</label>
+        <label className="text-white/60 text-sm mb-2 flex items-center gap-1.5 block">
+          STL Dosyası
+          <span className="text-[#FF6B35] text-xs font-bold">*</span>
+          <span className="text-white/25 text-xs">(zorunlu)</span>
+        </label>
+
         <div
-          className="border-2 border-dashed border-white/10 rounded-xl p-8 text-center hover:border-[#FF6B35]/40 transition-colors cursor-pointer"
+          className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer ${
+            fileError
+              ? "border-red-500/50 bg-red-500/[0.03] hover:border-red-500/70"
+              : pendingFiles.length > 0
+              ? "border-[#FF6B35]/40 bg-[#FF6B35]/[0.03] hover:border-[#FF6B35]/60"
+              : "border-white/10 hover:border-[#FF6B35]/40"
+          }`}
           onDragOver={(e) => e.preventDefault()}
           onDrop={(e) => {
             e.preventDefault();
-            const dropped = Array.from(e.dataTransfer.files).filter((f) => f.name.endsWith(".stl"));
-            setFiles((prev) => [...prev, ...dropped]);
+            addFiles(Array.from(e.dataTransfer.files));
           }}
         >
-          <Upload size={32} className="mx-auto text-white/20 mb-3" />
+          <Upload size={32} className={`mx-auto mb-3 ${pendingFiles.length > 0 ? "text-[#FF6B35]/60" : "text-white/20"}`} />
           <p className="text-white/40 text-sm">STL dosyanızı buraya sürükleyin</p>
+          <p className="text-white/20 text-xs mt-1">Maksimum 32 MB · Birden fazla dosya eklenebilir</p>
           <label className="mt-3 inline-block px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-white/60 cursor-pointer hover:bg-white/10 transition-colors">
             Dosya Seç
-            <input type="file" accept=".stl" multiple className="hidden"
-              onChange={(e) => setFiles((prev) => [...prev, ...Array.from(e.target.files || [])])} />
+            <input
+              type="file"
+              accept=".stl"
+              multiple
+              className="hidden"
+              onChange={(e) => addFiles(Array.from(e.target.files ?? []))}
+            />
           </label>
         </div>
-        {files.length > 0 && (
+
+        {fileError && (
+          <p className="text-red-400 text-xs mt-1.5 flex items-center gap-1">
+            <AlertTriangle size={11} /> {fileError}
+          </p>
+        )}
+
+        {/* Seçili dosya listesi */}
+        {pendingFiles.length > 0 && (
           <div className="mt-3 space-y-2">
-            {files.map((file, i) => (
+            {pendingFiles.map((file, i) => (
               <div key={i} className="flex items-center gap-3 px-3 py-2 bg-white/5 rounded-lg">
-                <FileText size={16} className="text-[#FF6B35]" />
+                <FileText size={16} className="text-[#FF6B35] flex-shrink-0" />
                 <span className="text-white/70 text-sm flex-1 truncate">{file.name}</span>
-                <button type="button" onClick={() => setFiles((prev) => prev.filter((_, idx) => idx !== i))}
-                  className="text-white/30 hover:text-white"><X size={14} /></button>
+                <span className="text-white/25 text-xs flex-shrink-0">
+                  {(file.size / 1024 / 1024).toFixed(1)} MB
+                </span>
+                {uploadedUrls.length > 0 ? (
+                  <CheckCircle2 size={14} className="text-[#00D4AA] flex-shrink-0" />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => removeFile(i)}
+                    className="text-white/30 hover:text-white flex-shrink-0"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
               </div>
             ))}
+            {uploadedUrls.length > 0 && (
+              <p className="text-[#00D4AA] text-xs flex items-center gap-1">
+                <CheckCircle2 size={11} /> Dosyalar yüklendi
+              </p>
+            )}
           </div>
         )}
       </div>
@@ -172,17 +270,23 @@ export function PrintOrderForm() {
       {/* Başlık */}
       <div>
         <label className="text-white/60 text-sm mb-1.5 block">Proje Başlığı</label>
-        <input {...register("title")} placeholder="Drone gövdesi, robot kolu parçası..."
-          className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/20 focus:border-[#FF6B35] focus:outline-none transition-colors text-sm" />
+        <input
+          {...register("title")}
+          placeholder="Drone gövdesi, robot kolu parçası..."
+          className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/20 focus:border-[#FF6B35] focus:outline-none transition-colors text-sm"
+        />
         {errors.title && <p className="text-red-400 text-xs mt-1">{errors.title.message}</p>}
       </div>
 
       {/* Açıklama */}
       <div>
         <label className="text-white/60 text-sm mb-1.5 block">Açıklama</label>
-        <textarea {...register("description")} rows={4}
+        <textarea
+          {...register("description")}
+          rows={4}
           placeholder="Parçanın boyutları, kullanım amacı, özel gereksinimler..."
-          className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/20 focus:border-[#FF6B35] focus:outline-none transition-colors text-sm resize-none" />
+          className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/20 focus:border-[#FF6B35] focus:outline-none transition-colors text-sm resize-none"
+        />
         {errors.description && <p className="text-red-400 text-xs mt-1">{errors.description.message}</p>}
       </div>
 
@@ -213,8 +317,10 @@ export function PrintOrderForm() {
         {/* Kalite */}
         <div>
           <label className="text-white/60 text-sm mb-2 block">Kalite</label>
-          <select {...register("quality")}
-            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:border-[#FF6B35] focus:outline-none text-sm">
+          <select
+            {...register("quality")}
+            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:border-[#FF6B35] focus:outline-none text-sm"
+          >
             {Object.entries(QUALITY_LABELS).map(([val, label]) => (
               <option key={val} value={val} className="bg-[#0a0a0a]">{label}</option>
             ))}
@@ -224,8 +330,10 @@ export function PrintOrderForm() {
         {/* Renk */}
         <div>
           <label className="text-white/60 text-sm mb-2 block">Renk</label>
-          <select {...register("color")}
-            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:border-[#FF6B35] focus:outline-none text-sm">
+          <select
+            {...register("color")}
+            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:border-[#FF6B35] focus:outline-none text-sm"
+          >
             {COLORS.map((c) => <option key={c} value={c} className="bg-[#0a0a0a]">{c}</option>)}
           </select>
         </div>
@@ -233,20 +341,28 @@ export function PrintOrderForm() {
         {/* Tahmini Ağırlık */}
         <div>
           <label className="text-white/60 text-sm mb-2 block">Tahmini Ağırlık (gram)</label>
-          <input {...register("estimatedWeight")} type="number" min={1}
-            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:border-[#FF6B35] focus:outline-none text-sm" />
+          <input
+            {...register("estimatedWeight")}
+            type="number"
+            min={1}
+            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:border-[#FF6B35] focus:outline-none text-sm"
+          />
           {errors.estimatedWeight && <p className="text-red-400 text-xs mt-1">{errors.estimatedWeight.message}</p>}
-          <p className="text-white/25 text-[11px] mt-1">STL dosyanız yoksa yaklaşık değer girebilirsiniz</p>
         </div>
 
         {/* Tahmini Baskı Süresi */}
         <div>
-          <label className="text-white/60 text-sm mb-2 block flex items-center gap-1.5">
+          <label className="text-white/60 text-sm mb-2 flex items-center gap-1.5 block">
             <Clock size={13} />
             Tahmini Baskı Süresi (saat)
           </label>
-          <input {...register("estimatedHours")} type="number" min={0} step={0.5}
-            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:border-[#FF6B35] focus:outline-none text-sm" />
+          <input
+            {...register("estimatedHours")}
+            type="number"
+            min={0}
+            step={0.5}
+            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:border-[#FF6B35] focus:outline-none text-sm"
+          />
           <p className="text-white/25 text-[11px] mt-1">Bilmiyorsanız boş bırakabilirsiniz</p>
         </div>
       </div>
@@ -260,13 +376,13 @@ export function PrintOrderForm() {
         </div>
       </label>
 
-      {/* ─── Uyarı Mesajları ──────────────────────────────────────────────── */}
+      {/* Uyarılar */}
       <div className="space-y-2">
-        {(needs || supportsNote) && (
+        {needs && (
           <div className="flex gap-2.5 p-3 bg-yellow-400/[0.07] border border-yellow-400/20 rounded-xl">
             <AlertTriangle size={15} className="text-yellow-400 flex-shrink-0 mt-0.5" />
             <p className="text-yellow-300/80 text-xs leading-relaxed">
-              <span className="font-semibold">Destek yapısı:</span> Ek malzeme ve işlem süresi gerektirdiğinden fiyat tahminin üzerinde çıkabilir. Nihai fiyat inceleme sonrası bildirilir.
+              <span className="font-semibold">Destek yapısı:</span> Ek malzeme ve işlem süresi gerektirdiğinden fiyat tahminin üzerinde çıkabilir.
             </p>
           </div>
         )}
@@ -274,20 +390,18 @@ export function PrintOrderForm() {
           <div className="flex gap-2.5 p-3 bg-blue-400/[0.07] border border-blue-400/20 rounded-xl">
             <Clock size={15} className="text-blue-400 flex-shrink-0 mt-0.5" />
             <p className="text-blue-300/80 text-xs leading-relaxed">
-              <span className="font-semibold">Uzun süreli baskı:</span> 2 saati aşan baskılarda makine kullanım süresi <span className="font-semibold">saatlik olarak ayrıca ücretlendirilir</span>. Kesin tutar teklif aşamasında belirtilecektir.
+              <span className="font-semibold">Uzun süreli baskı:</span> 2 saati aşan baskılarda makine kullanım ücreti ayrıca eklenir.
             </p>
           </div>
         )}
       </div>
 
-      {/* ─── Tahmini Fiyat Kutusu ─────────────────────────────────────────── */}
+      {/* Tahmini Fiyat */}
       <div className="p-4 bg-[#FF6B35]/5 border border-[#FF6B35]/20 rounded-xl space-y-3">
         <div className="flex items-center justify-between">
           <span className="text-white/60 text-sm">Tahmini Malzeme Maliyeti</span>
           <span className="text-[#FF6B35] text-xl font-bold">≈ {estimatedPrice.toFixed(0)}₺</span>
         </div>
-
-        {/* Fiyat kırılımı */}
         <div className="text-[11px] text-white/30 space-y-0.5 border-t border-white/5 pt-2">
           <div className="flex justify-between">
             <span>{mat} birim fiyat</span>
@@ -302,21 +416,19 @@ export function PrintOrderForm() {
             <span>{weight}g</span>
           </div>
         </div>
-
         <div className="flex gap-1.5 items-start pt-1 border-t border-white/5">
           <Info size={12} className="text-white/25 mt-0.5 flex-shrink-0" />
-          <div className="text-[11px] text-white/30 space-y-0.5">
-            <p>Kesin fiyat inceleme sonrası tarafınıza bildirilecektir.</p>
-            {overTimeNote && <p className="text-blue-400/70">+ Baskı süresi 2 saati aştığı için saatlik makine ücreti eklenecektir.</p>}
-            {(needs || supportsNote) && <p className="text-yellow-400/70">+ Destek yapısı maliyeti eklenebilir.</p>}
-          </div>
+          <p className="text-[11px] text-white/30">Kesin fiyat inceleme sonrası tarafınıza bildirilecektir.</p>
         </div>
       </div>
 
-      <button type="submit" disabled={loading}
-        className="w-full py-4 bg-[#FF6B35] hover:bg-[#ff5a1f] disabled:opacity-50 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2">
-        {loading && <Loader2 size={18} className="animate-spin" />}
-        Talebi Gönder
+      <button
+        type="submit"
+        disabled={isProcessing}
+        className="w-full py-4 bg-[#FF6B35] hover:bg-[#ff5a1f] disabled:opacity-50 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
+      >
+        {isProcessing && <Loader2 size={18} className="animate-spin" />}
+        {uploading ? "Dosyalar yükleniyor..." : submitting ? "Gönderiliyor..." : "Talebi Gönder"}
       </button>
     </form>
   );

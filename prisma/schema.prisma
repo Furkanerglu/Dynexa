@@ -67,6 +67,7 @@ model Address {
 enum CargoProvider {
   YURTICI
   HEPSIJET
+  OTHER
 }
 
 model Category {
