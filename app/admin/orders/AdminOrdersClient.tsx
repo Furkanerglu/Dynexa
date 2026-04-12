@@ -29,12 +29,12 @@ type SR = {
 // ─── Sabitler ────────────────────────────────────────────────────────────────
 
 const ORDER_STATUSES = [
-  { value: "PENDING",   label: "Beklemede",      badge: "text-yellow-400 bg-yellow-400/10 border border-yellow-400/30" },
-  { value: "CONFIRMED", label: "Onaylandı",       badge: "text-blue-400 bg-blue-400/10 border border-blue-400/30" },
-  { value: "PREPARING", label: "Hazırlanıyor",    badge: "text-[#FF6B35] bg-[#FF6B35]/10 border border-[#FF6B35]/30" },
-  { value: "SHIPPED",   label: "Kargoya Verildi", badge: "text-purple-400 bg-purple-400/10 border border-purple-400/30" },
-  { value: "DELIVERED", label: "Teslim Edildi",   badge: "text-[#00D4AA] bg-[#00D4AA]/10 border border-[#00D4AA]/30" },
-  { value: "CANCELLED", label: "İptal Edildi",    badge: "text-red-400 bg-red-400/10 border border-red-400/30" },
+  { value: "PENDING",   label: "Onay Bekliyor",            badge: "text-yellow-400 bg-yellow-400/10 border border-yellow-400/30" },
+  { value: "CONFIRMED", label: "Hazırlanıyor",             badge: "text-blue-400 bg-blue-400/10 border border-blue-400/30" },
+  { value: "PREPARING", label: "Hazır, Kargoya Verilecek", badge: "text-[#FF6B35] bg-[#FF6B35]/10 border border-[#FF6B35]/30" },
+  { value: "SHIPPED",   label: "Kargoda",                  badge: "text-purple-400 bg-purple-400/10 border border-purple-400/30" },
+  { value: "DELIVERED", label: "Teslim Edildi",             badge: "text-[#00D4AA] bg-[#00D4AA]/10 border border-[#00D4AA]/30" },
+  { value: "CANCELLED", label: "İptal Edildi",              badge: "text-red-400 bg-red-400/10 border border-red-400/30" },
 ];
 
 const SR_STATUSES = [

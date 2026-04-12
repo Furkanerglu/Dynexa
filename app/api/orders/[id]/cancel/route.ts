@@ -16,10 +16,10 @@ export async function POST(
   if (!order) return NextResponse.json({ error: "Sipariş bulunamadı" }, { status: 404 });
   if (order.userId !== session.user.id) return NextResponse.json({ error: "Yetkisiz" }, { status: 403 });
 
-  // Sadece PENDING veya CONFIRMED siparişler iptal edilebilir
-  if (!["PENDING", "CONFIRMED"].includes(order.status)) {
+  // Kargoya verilinceye kadar iptal edilebilir
+  if (!["PENDING", "CONFIRMED", "PREPARING"].includes(order.status)) {
     return NextResponse.json(
-      { error: "Bu sipariş artık iptal edilemez. Hazırlanma veya kargo aşamasındaki siparişler için iletişime geçin." },
+      { error: "Kargoya verilen siparişler iptal edilemez. Destek için iletişime geçin." },
       { status: 400 }
     );
   }

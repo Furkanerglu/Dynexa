@@ -3,19 +3,29 @@
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { formatPrice } from "@/lib/utils";
-import { Package, XCircle, ChevronDown, ChevronUp, Zap, Scan, CheckCircle2, ShoppingCart } from "lucide-react";
+import { Package, XCircle, ChevronDown, ChevronUp, Zap, Scan, CheckCircle2, ShoppingCart, Clock, Wrench, BoxIcon, Truck, CircleCheck } from "lucide-react";
 import Link from "next/link";
 
 // ─── Sabitler ────────────────────────────────────────────────────────────────
 
 const ORDER_STATUS: Record<string, { label: string; color: string }> = {
-  PENDING:   { label: "Beklemede",      color: "text-yellow-400 bg-yellow-400/10 border-yellow-400/30" },
-  CONFIRMED: { label: "Onaylandı",      color: "text-blue-400 bg-blue-400/10 border-blue-400/30" },
-  PREPARING: { label: "Hazırlanıyor",   color: "text-[#FF6B35] bg-[#FF6B35]/10 border-[#FF6B35]/30" },
-  SHIPPED:   { label: "Kargoda",        color: "text-purple-400 bg-purple-400/10 border-purple-400/30" },
-  DELIVERED: { label: "Teslim Edildi",  color: "text-[#00D4AA] bg-[#00D4AA]/10 border-[#00D4AA]/30" },
-  CANCELLED: { label: "İptal Edildi",   color: "text-red-400 bg-red-400/10 border-red-400/30" },
+  PENDING:   { label: "Onay Bekliyor",           color: "text-yellow-400 bg-yellow-400/10 border-yellow-400/30" },
+  CONFIRMED: { label: "Hazırlanıyor",            color: "text-blue-400 bg-blue-400/10 border-blue-400/30" },
+  PREPARING: { label: "Hazır, Kargoya Verilecek", color: "text-[#FF6B35] bg-[#FF6B35]/10 border-[#FF6B35]/30" },
+  SHIPPED:   { label: "Kargoda",                 color: "text-purple-400 bg-purple-400/10 border-purple-400/30" },
+  DELIVERED: { label: "Teslim Edildi",            color: "text-[#00D4AA] bg-[#00D4AA]/10 border-[#00D4AA]/30" },
+  CANCELLED: { label: "İptal Edildi",             color: "text-red-400 bg-red-400/10 border-red-400/30" },
 };
+
+// Adım bazlı takip (CANCELLED hariç)
+const ORDER_STEPS = [
+  { status: "PENDING",   icon: Clock,       label: "Onay Bekliyor" },
+  { status: "CONFIRMED", icon: Wrench,      label: "Hazırlanıyor" },
+  { status: "PREPARING", icon: BoxIcon,     label: "Kargoya Hazır" },
+  { status: "SHIPPED",   icon: Truck,       label: "Kargoda" },
+  { status: "DELIVERED", icon: CircleCheck, label: "Teslim Edildi" },
+];
+const STEP_ORDER = ["PENDING", "CONFIRMED", "PREPARING", "SHIPPED", "DELIVERED"];
 
 const SR_STATUS: Record<string, { label: string; color: string }> = {
   PENDING:     { label: "Beklemede",     color: "text-yellow-400 bg-yellow-400/10 border-yellow-400/30" },
@@ -27,7 +37,7 @@ const SR_STATUS: Record<string, { label: string; color: string }> = {
   CANCELLED:   { label: "İptal",         color: "text-red-400 bg-red-400/10 border-red-400/30" },
 };
 
-const CANCELLABLE_ORDER = ["PENDING", "CONFIRMED"];
+const CANCELLABLE_ORDER = ["PENDING", "CONFIRMED", "PREPARING"];
 
 // ─── Tipler ──────────────────────────────────────────────────────────────────
 
@@ -37,11 +47,58 @@ type SR    = { id: string; type: string; status: string; title: string; descript
 
 // ─── Ürün Sipariş Kartı ───────────────────────────────────────────────────────
 
+function OrderStepper({ status }: { status: string }) {
+  if (status === "CANCELLED") {
+    return (
+      <div className="flex items-center gap-2 py-3">
+        <XCircle size={14} className="text-red-400 flex-shrink-0" />
+        <span className="text-red-400 text-xs font-medium">Sipariş iptal edildi</span>
+      </div>
+    );
+  }
+  const currentIdx = STEP_ORDER.indexOf(status);
+  return (
+    <div className="flex items-center gap-0 py-3 overflow-x-auto">
+      {ORDER_STEPS.map((step, idx) => {
+        const Icon     = step.icon;
+        const done     = idx < currentIdx;
+        const active   = idx === currentIdx;
+        const isLast   = idx === ORDER_STEPS.length - 1;
+        return (
+          <div key={step.status} className="flex items-center min-w-0">
+            {/* Adım */}
+            <div className="flex flex-col items-center gap-1 flex-shrink-0">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+                done    ? "bg-[#00D4AA]/20 text-[#00D4AA] border border-[#00D4AA]/40" :
+                active  ? "bg-[#FF6B35] text-white shadow-[0_0_12px_rgba(255,107,53,0.5)]" :
+                          "bg-white/5 text-white/20 border border-white/10"
+              }`}>
+                {done ? <CheckCircle2 size={14} /> : <Icon size={13} />}
+              </div>
+              <span className={`text-[9px] font-medium text-center leading-tight max-w-[56px] ${
+                done ? "text-[#00D4AA]/70" : active ? "text-[#FF6B35]" : "text-white/20"
+              }`}>
+                {step.label}
+              </span>
+            </div>
+            {/* Bağlantı çizgisi */}
+            {!isLast && (
+              <div className={`h-[2px] w-8 mx-1 flex-shrink-0 rounded-full mb-4 transition-all ${
+                idx < currentIdx ? "bg-[#00D4AA]/40" : "bg-white/8"
+              }`} />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function OrderCard({ order, onCancel }: { order: Order; onCancel: (id: string) => Promise<void> }) {
   const [open, setOpen]             = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [confirm, setConfirm]       = useState(false);
-  const status   = ORDER_STATUS[order.status] ?? ORDER_STATUS.PENDING;
+  const status    = ORDER_STATUS[order.status] ?? ORDER_STATUS.PENDING;
   const canCancel = CANCELLABLE_ORDER.includes(order.status);
 
   async function handleCancel() {
@@ -76,6 +133,11 @@ function OrderCard({ order, onCancel }: { order: Order; onCancel: (id: string) =
         </div>
       </div>
 
+      {/* Sipariş takip adımları — her zaman görünür */}
+      <div className="px-5 pb-3 border-t border-white/5">
+        <OrderStepper status={order.status} />
+      </div>
+
       {open && (
         <div className="border-t border-white/5 px-5 py-4 space-y-4">
           <div className="space-y-2">
@@ -107,7 +169,7 @@ function OrderCard({ order, onCancel }: { order: Order; onCancel: (id: string) =
                   <XCircle size={13} /> Siparişi İptal Et
                 </button>
               )}
-              <p className="text-[10px] text-white/20 mt-1.5">* Hazırlanmaya başlayan siparişler iptal edilemez</p>
+              <p className="text-[10px] text-white/20 mt-1.5">* Kargoya verilen siparişler iptal edilemez</p>
             </div>
           )}
           <div className="flex justify-between pt-1 border-t border-white/5">
