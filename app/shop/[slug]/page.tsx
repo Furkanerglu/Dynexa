@@ -58,16 +58,21 @@ export default async function ProductDetailPage({ params }: Props) {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
 
         {/* Breadcrumb */}
-        <div className="flex items-center gap-2 mb-8 text-sm text-white/40">
-          <Link href="/shop" className="hover:text-white flex items-center gap-1">
-            <ChevronLeft size={14} />
-            Mağaza
-          </Link>
-          <span>/</span>
-          <span className="text-white/60">{product.category.name}</span>
-          <span>/</span>
-          <span className="text-white truncate max-w-xs">{product.name}</span>
-        </div>
+        {(() => {
+          const isFilament = (product.category as { type: string }).type === "FILAMENT";
+          return (
+            <div className="flex items-center gap-2 mb-8 text-sm text-white/40">
+              <Link href={isFilament ? "/filament" : "/shop"} className="hover:text-white flex items-center gap-1">
+                <ChevronLeft size={14} />
+                {isFilament ? "Filament" : "Mağaza"}
+              </Link>
+              <span>/</span>
+              <span className="text-white/60">{product.category.name}</span>
+              <span>/</span>
+              <span className="text-white truncate max-w-xs">{product.name}</span>
+            </div>
+          );
+        })()}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
 
