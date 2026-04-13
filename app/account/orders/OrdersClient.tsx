@@ -332,8 +332,10 @@ export default function OrdersClient({ initialOrders, initialPrint, initialScan 
     if (t === "print" || t === "scan" || t === "orders") setTab(t);
   }, [searchParams]);
 
-  const quotedPrint = print.filter(r => r.status === "QUOTED").length;
-  const quotedScan  = scan.filter(r  => r.status === "QUOTED").length;
+  const INACTIVE = ["COMPLETED", "CANCELLED"];
+  const activeOrders = orders.filter(o => !INACTIVE.includes(o.status)).length;
+  const activePrint  = print.filter(r  => !INACTIVE.includes(r.status)).length;
+  const activeScan   = scan.filter(r   => !INACTIVE.includes(r.status)).length;
 
   const sortedPrint = useMemo(() => [...print].sort((a, b) => {
     if (a.status === "QUOTED" && b.status !== "QUOTED") return -1;
@@ -364,9 +366,9 @@ export default function OrdersClient({ initialOrders, initialPrint, initialScan 
   }
 
   const TABS = [
-    { key: "orders", label: "Ürün Siparişleri", icon: ShoppingCart, badge: 0,           activeCls: "border-white/20 bg-white/[0.06] text-white",          emptyHref: "/shop",             emptyLabel: "Alışverişe Başla" },
-    { key: "print",  label: "3D Baskı",          icon: Zap,          badge: quotedPrint, activeCls: "border-[#FF6B35]/50 bg-[#FF6B35]/10 text-[#FF6B35]", emptyHref: "/services/print",   emptyLabel: "3D Baskı Talebi" },
-    { key: "scan",   label: "3D Tarama",          icon: Scan,         badge: quotedScan,  activeCls: "border-[#00D4AA]/50 bg-[#00D4AA]/10 text-[#00D4AA]", emptyHref: "/services/scanning", emptyLabel: "Tarama Talebi" },
+    { key: "orders", label: "Ürün Siparişleri", icon: ShoppingCart, badge: activeOrders, badgeCls: "bg-white/15 text-white",                activeCls: "border-white/20 bg-white/[0.06] text-white",          emptyHref: "/shop",              emptyLabel: "Alışverişe Başla" },
+    { key: "print",  label: "3D Baskı",          icon: Zap,          badge: activePrint,  badgeCls: "bg-[#FF6B35]/25 text-[#FF6B35]",        activeCls: "border-[#FF6B35]/50 bg-[#FF6B35]/10 text-[#FF6B35]", emptyHref: "/services/print",   emptyLabel: "3D Baskı Talebi" },
+    { key: "scan",   label: "3D Tarama",          icon: Scan,         badge: activeScan,   badgeCls: "bg-[#00D4AA]/20 text-[#00D4AA]",        activeCls: "border-[#00D4AA]/50 bg-[#00D4AA]/10 text-[#00D4AA]", emptyHref: "/services/scanning", emptyLabel: "Tarama Talebi" },
   ] as const;
 
   return (
@@ -384,7 +386,7 @@ export default function OrdersClient({ initialOrders, initialPrint, initialScan 
               <Icon size={14} className={isActive ? "" : "opacity-60"} />
               {t.label}
               {t.badge > 0 && (
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-purple-400/20 text-purple-300">{t.badge}</span>
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${t.badgeCls}`}>{t.badge}</span>
               )}
             </button>
           );
