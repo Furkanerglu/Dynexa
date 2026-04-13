@@ -6,6 +6,8 @@ import Image from "next/image";
 import { formatPrice } from "@/lib/utils";
 import { AddToCartButton } from "./AddToCartButton";
 import { ProductImageGallery } from "./ProductImageGallery";
+import { ProductFeatures } from "./ProductFeatures";
+import type { FeatureSection } from "./ProductFeatures";
 import { Package, Star, ChevronLeft } from "lucide-react";
 import Link from "next/link";
 
@@ -23,7 +25,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-type Feature = { title: string; description: string; image?: string };
 
 export default async function ProductDetailPage({ params }: Props) {
   const { slug } = await params;
@@ -40,8 +41,8 @@ export default async function ProductDetailPage({ params }: Props) {
 
   const rawSpecs = product.specs as Record<string, unknown> | null;
   // features'ı specs'ten ayır — ürün sayfasında ayrı render edilecek
-  const features: Feature[] = Array.isArray(rawSpecs?.features)
-    ? (rawSpecs!.features as Feature[])
+  const features: FeatureSection[] = Array.isArray(rawSpecs?.features)
+    ? (rawSpecs!.features as FeatureSection[])
     : [];
   const specs = rawSpecs
     ? Object.fromEntries(Object.entries(rawSpecs).filter(([k]) => k !== "features"))
@@ -161,50 +162,8 @@ export default async function ProductDetailPage({ params }: Props) {
           </div>
         </div>
 
-        {/* ── Öne Çıkan Özellikler Bölümü ── */}
-        {features.length > 0 && (
-          <div className="mt-20 space-y-6">
-            <h2 className="text-xl font-bold text-white">Ürün Özellikleri</h2>
-            {features.map((feature, i) => {
-              const isEven = i % 2 === 0;
-              return (
-                <div
-                  key={i}
-                  className="relative w-full rounded-3xl overflow-hidden border border-white/10 min-h-[260px] flex"
-                >
-                  {/* Arka plan görseli */}
-                  {feature.image && (
-                    <div className="absolute inset-0">
-                      <Image
-                        src={feature.image}
-                        alt={feature.title}
-                        fill
-                        className="object-cover"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-r from-[#020202] via-[#020202]/85 to-[#020202]/30" />
-                    </div>
-                  )}
-                  {!feature.image && (
-                    <div className="absolute inset-0 bg-gradient-to-br from-[#FF6B35]/5 to-[#00D4AA]/5" />
-                  )}
-
-                  {/* İçerik */}
-                  <div className={`relative z-10 flex-1 flex items-center p-8 md:p-12 ${isEven ? "" : "justify-end"}`}>
-                    <div className="max-w-lg">
-                      <div className="w-10 h-0.5 bg-[#FF6B35] mb-4" />
-                      <h3 className="text-2xl md:text-3xl font-black tracking-tighter text-white mb-3 leading-tight">
-                        {feature.title}
-                      </h3>
-                      <p className="text-white/60 text-sm leading-relaxed max-w-md">
-                        {feature.description}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+        {/* ── Ürün Özellikleri Bölümleri ── */}
+        <ProductFeatures sections={features} />
 
         {/* ── Yorumlar ── */}
         {product.reviews.length > 0 && (
