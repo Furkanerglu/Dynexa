@@ -216,6 +216,7 @@ model Notification {
 enum NotificationType {
   ORDER_STATUS
   SERVICE_STATUS
+  QUOTE
   DISCOUNT
   INFO
 }
