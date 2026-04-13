@@ -1,10 +1,40 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import Image from "next/image";
 
+const ZOOM       = 2.8;   // büyütme katsayısı
+const LENS_SIZE  = 150;   // mercek çapı (px)
+
+interface ZoomPos { x: number; y: number; lensX: number; lensY: number }
+
 export function ProductImageGallery({ images, name }: { images: string[]; name: string }) {
-  const [active, setActive] = useState(0);
+  const [active,  setActive]  = useState(0);
+  const [zoomPos, setZoomPos] = useState<ZoomPos | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Mouse hareketi → mercek konumunu hesapla
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    // % konum — arka plan için
+    const pctX = ((e.clientX - rect.left)  / rect.width)  * 100;
+    const pctY = ((e.clientY - rect.top)   / rect.height) * 100;
+
+    // Mercek DOM konumu — container içinde merkezleme
+    const lensX = e.clientX - rect.left - LENS_SIZE / 2;
+    const lensY = e.clientY - rect.top  - LENS_SIZE / 2;
+
+    setZoomPos({
+      x:     Math.max(0, Math.min(100, pctX)),
+      y:     Math.max(0, Math.min(100, pctY)),
+      lensX: Math.max(0, Math.min(rect.width  - LENS_SIZE, lensX)),
+      lensY: Math.max(0, Math.min(rect.height - LENS_SIZE, lensY)),
+    });
+  }, []);
+
+  const handleMouseLeave = useCallback(() => setZoomPos(null), []);
 
   if (images.length === 0) {
     return (
@@ -13,6 +43,8 @@ export function ProductImageGallery({ images, name }: { images: string[]; name: 
       </div>
     );
   }
+
+  const activeImage = images[active];
 
   return (
     <div className="flex gap-3">
@@ -44,19 +76,52 @@ export function ProductImageGallery({ images, name }: { images: string[]; name: 
         </div>
       )}
 
-      {/* Ana görsel */}
-      <div className="relative flex-1 h-96 bg-[#020202] rounded-2xl overflow-hidden border border-white/10">
+      {/* Ana görsel + büyüteç */}
+      <div
+        ref={containerRef}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+        className="relative flex-1 h-96 bg-[#020202] rounded-2xl overflow-hidden border border-white/10 select-none"
+        style={{ cursor: zoomPos ? "crosshair" : "default" }}
+      >
+        {/* Temel görsel */}
         <Image
-          src={images[active]}
+          src={activeImage}
           alt={`${name} — ana görsel`}
           fill
-          className="object-contain p-8"
+          className="object-contain p-8 pointer-events-none"
           priority
         />
+
+        {/* Büyüteç mercek */}
+        {zoomPos && (
+          <div
+            className="absolute rounded-full border-2 border-[#FF6B35]/60 shadow-[0_0_0_1px_rgba(255,107,53,0.2),0_8px_32px_rgba(0,0,0,0.6)] overflow-hidden pointer-events-none z-20"
+            style={{
+              width:  LENS_SIZE,
+              height: LENS_SIZE,
+              left:   zoomPos.lensX,
+              top:    zoomPos.lensY,
+              backgroundImage:    `url(${activeImage})`,
+              backgroundSize:     `${ZOOM * 100}%`,
+              backgroundPosition: `${zoomPos.x}% ${zoomPos.y}%`,
+              backgroundRepeat:   "no-repeat",
+              backgroundColor:    "#020202",
+            }}
+          />
+        )}
+
         {/* Görsel sıra sayacı */}
-        {images.length > 1 && (
-          <span className="absolute bottom-3 right-3 text-[10px] text-white/30 bg-black/40 px-2 py-0.5 rounded-full">
+        {images.length > 1 && !zoomPos && (
+          <span className="absolute bottom-3 right-3 text-[10px] text-white/30 bg-black/40 px-2 py-0.5 rounded-full pointer-events-none">
             {active + 1} / {images.length}
+          </span>
+        )}
+
+        {/* Zoom ipucu — hover olmadığında */}
+        {!zoomPos && (
+          <span className="absolute bottom-3 left-3 text-[10px] text-white/20 pointer-events-none select-none">
+            🔍 Büyütmek için üzerine gelin
           </span>
         )}
       </div>
