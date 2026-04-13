@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Bell, Package, Wrench, Tag, Info, X, Check } from "lucide-react";
+import { Bell, Package, Wrench, Tag, Info, X, Check, DollarSign } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 
@@ -17,10 +17,11 @@ type Notif = {
 
 function typeIcon(type: string) {
   switch (type) {
-    case "ORDER_STATUS":   return <Package size={14} className="text-[#FF6B35]" />;
-    case "SERVICE_STATUS": return <Wrench  size={14} className="text-purple-400" />;
-    case "DISCOUNT":       return <Tag     size={14} className="text-[#00D4AA]" />;
-    default:               return <Info    size={14} className="text-blue-400"   />;
+    case "ORDER_STATUS":   return <Package     size={14} className="text-[#FF6B35]"  />;
+    case "QUOTE":          return <DollarSign  size={14} className="text-purple-400" />;
+    case "SERVICE_STATUS": return <Wrench      size={14} className="text-blue-400"   />;
+    case "DISCOUNT":       return <Tag         size={14} className="text-[#00D4AA]"  />;
+    default:               return <Info        size={14} className="text-white/40"   />;
   }
 }
 
@@ -72,9 +73,8 @@ export function NotificationBell() {
     setLoading(false);
   }
 
-  async function markRead(id: string) {
-    await fetch(`/api/notifications/${id}`, { method: "PATCH" });
-    // Okundu işaretlendikten sonra listeden kaldır
+  async function deleteNotif(id: string) {
+    await fetch(`/api/notifications/${id}`, { method: "DELETE" });
     setNotifs((prev) => prev.filter((n) => n.id !== id));
   }
 
@@ -137,22 +137,18 @@ export function NotificationBell() {
                 </div>
               ) : (
                 notifs.map((n) => {
-                  const Inner = (
-                    <div
-                      key={n.id}
-                      className={`flex gap-3 px-4 py-3 border-b border-white/5 last:border-0 transition-colors hover:bg-white/[0.03] cursor-pointer ${n.read ? "opacity-60" : ""}`}
-                      onClick={() => !n.read && markRead(n.id)}
-                    >
+                  const Content = (
+                    <div className="flex gap-3 px-4 py-3 flex-1 min-w-0">
                       <div className="w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0 mt-0.5">
                         {typeIcon(n.type)}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-1">
-                          <p className={`text-sm leading-snug ${n.read ? "text-white/50" : "text-white font-medium"}`}>
+                        <div className="flex items-start gap-1">
+                          <p className={`text-sm leading-snug flex-1 ${n.read ? "text-white/50" : "text-white font-medium"}`}>
                             {n.title}
                           </p>
                           {!n.read && (
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#FF6B35] mt-1 flex-shrink-0" />
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#FF6B35] mt-1.5 flex-shrink-0" />
                           )}
                         </div>
                         <p className="text-white/35 text-xs mt-0.5 line-clamp-2">{n.body}</p>
@@ -161,12 +157,28 @@ export function NotificationBell() {
                     </div>
                   );
 
-                  return n.link ? (
-                    <Link key={n.id} href={n.link} onClick={() => { setOpen(false); if (!n.read) markRead(n.id); }}>
-                      {Inner}
-                    </Link>
-                  ) : (
-                    <div key={n.id}>{Inner}</div>
+                  return (
+                    <div
+                      key={n.id}
+                      className={`flex items-start border-b border-white/5 last:border-0 hover:bg-white/[0.03] transition-colors group ${n.read ? "opacity-60" : ""}`}
+                    >
+                      {n.link ? (
+                        <Link href={n.link} className="flex-1 min-w-0" onClick={() => setOpen(false)}>
+                          {Content}
+                        </Link>
+                      ) : (
+                        <div className="flex-1 min-w-0">{Content}</div>
+                      )}
+                      {/* X — sadece hover'da görünür, tıklanınca kalıcı sil */}
+                      <button
+                        type="button"
+                        onClick={() => deleteNotif(n.id)}
+                        className="flex-shrink-0 mt-3 mr-3 w-5 h-5 flex items-center justify-center rounded-full text-white/20 hover:text-white hover:bg-white/10 opacity-0 group-hover:opacity-100 transition-all"
+                        title="Bildirimi sil"
+                      >
+                        <X size={11} />
+                      </button>
+                    </div>
                   );
                 })
               )}

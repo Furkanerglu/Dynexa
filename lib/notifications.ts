@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 
-type NotifType = "ORDER_STATUS" | "SERVICE_STATUS" | "DISCOUNT" | "INFO";
+type NotifType = "ORDER_STATUS" | "SERVICE_STATUS" | "QUOTE" | "DISCOUNT" | "INFO";
 
 export async function createNotification({
   userId,
@@ -55,10 +55,10 @@ const SERVICE_TYPE_LABEL: Record<ServiceType, string> = {
 
 function getServiceStatusMsg(status: string, serviceType?: ServiceType) {
   const label = serviceType ? SERVICE_TYPE_LABEL[serviceType] : "Servis";
-  const msgs: Record<string, { title: string; body: string }> = {
+  const msgs: Record<string, { title: string; body: string; type?: NotifType }> = {
     PENDING:     { title: `${label} Talebiniz Alındı`,       body: `${label} talebiniz alındı, incelenecek.` },
     REVIEWING:   { title: `${label} Talebiniz İnceleniyor`,  body: `Talebinizi inceliyoruz, kısa sürede fiyat teklifi sunacağız.` },
-    QUOTED:      { title: "Fiyat Teklifi Hazır!",            body: `${label} talebiniz için fiyat teklifi hazır. Ödeme yapmak için tıklayın.` },
+    QUOTED:      { title: "Fiyat Teklifi Hazır!",            body: `${label} talebiniz için fiyat teklifi hazır. Onaylamak için tıklayın.`, type: "QUOTE" },
     CONFIRMED:   { title: `${label} Talebiniz Onaylandı`,    body: "Ödemeniz alındı, talebiniz işleme alındı." },
     IN_PROGRESS: { title: `${label} İşlemde`,                body: "Talebiniz aktif olarak işleniyor." },
     COMPLETED:   { title: `${label} Tamamlandı`,             body: `${label} talebiniz başarıyla tamamlandı!` },
@@ -79,8 +79,8 @@ export async function notifyServiceStatus(
     userId,
     title: msg.title,
     body:  msg.body,
-    type:  "SERVICE_STATUS",
-    link:  `/account/service-requests`,
+    type:  msg.type ?? "SERVICE_STATUS",
+    link:  `/account/orders`,
   });
 }
 

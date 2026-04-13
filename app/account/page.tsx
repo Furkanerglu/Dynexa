@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import Link from "next/link";
 import { formatPrice } from "@/lib/utils";
-import { Package, Wrench, User, ChevronRight, MapPin, Settings, Zap, Scan } from "lucide-react";
+import { Package, Wrench, User, ChevronRight, MapPin, Settings, Zap, Scan, ShoppingCart } from "lucide-react";
 
 type OrderWithItems = Prisma.OrderGetPayload<{
   include: { items: { include: { product: true } } };
@@ -48,42 +48,17 @@ export default async function AccountPage() {
     // DB bağlantısı yoksa boş liste göster
   }
 
-  // Siparişler + 3D Baskı + 3D Tarama birleştir, tarihe göre sırala, son 4'ü al
-  type OrderEntry = { kind: "order"; id: string; label: string; sub: string; status: string; amount: number | null; date: Date };
-  type SREntry    = { kind: "print" | "scan"; id: string; label: string; sub: string; status: string; amount: number | null; date: Date };
-  type AnyEntry   = OrderEntry | SREntry;
+  // Sadece ürün siparişleri (son 4)
+  const recentOrders = orders.slice(0, 4);
 
-  const allOrderEntries: AnyEntry[] = [
-    ...orders.map(o => ({
-      kind:   "order" as const,
-      id:     o.id,
-      label:  `Sipariş #${o.id.slice(-8).toUpperCase()}`,
-      sub:    `${o.items.length} ürün`,
-      status: o.status,
-      amount: Number(o.totalAmount),
-      date:   o.createdAt,
-    })),
-    ...printRequests.map(r => ({
-      kind:   "print" as const,
-      id:     r.id,
-      label:  r.title,
-      sub:    "3D Baskı",
-      status: r.status,
-      amount: r.price !== null ? Number(r.price) : null,
-      date:   r.createdAt,
-    })),
-    ...scanRequests.map(r => ({
-      kind:   "scan" as const,
-      id:     r.id,
-      label:  r.title,
-      sub:    "3D Tarama",
-      status: r.status,
-      amount: r.price !== null ? Number(r.price) : null,
-      date:   r.createdAt,
-    })),
-  ]
-    .sort((a, b) => b.date.getTime() - a.date.getTime())
-    .slice(0, 4);
+  // 3D Baskı + Tarama aktif sayıları
+  const activePrintCount = printRequests.filter(r =>
+    !["COMPLETED", "CANCELLED"].includes(r.status)
+  ).length;
+  const activeScanCount = scanRequests.filter(r =>
+    !["COMPLETED", "CANCELLED"].includes(r.status)
+  ).length;
+  const totalServiceActive = activePrintCount + activeScanCount;
 
   const ORDER_STATUS_LABELS: Record<string, string> = {
     PENDING: "Beklemede",
@@ -141,11 +116,11 @@ export default async function AccountPage() {
           </Link>
         </div>
 
-        {/* Son Siparişler (Ürün + 3D Baskı + 3D Tarama) */}
+        {/* Son Ürün Siparişleri */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-white font-bold flex items-center gap-2">
-              <Package size={18} className="text-[#FF6B35]" />
+              <ShoppingCart size={18} className="text-[#FF6B35]" />
               Son Siparişler
             </h2>
             <Link href="/account/orders" className="text-[#FF6B35] text-sm hover:underline flex items-center gap-1">
@@ -153,59 +128,85 @@ export default async function AccountPage() {
             </Link>
           </div>
 
-          {allOrderEntries.length === 0 ? (
+          {recentOrders.length === 0 ? (
             <div className="p-6 bg-white/[0.03] border border-white/10 rounded-2xl text-center text-white/40">
               Henüz sipariş yok
             </div>
           ) : (
             <div className="space-y-3">
-              {allOrderEntries.map((entry) => {
-                const isOrder = entry.kind === "order";
-                const isPrint = entry.kind === "print";
-                const statusLabel = isOrder
-                  ? ORDER_STATUS_LABELS[entry.status]
-                  : SERVICE_STATUS_LABELS[entry.status];
+              {recentOrders.map((o) => {
+                const statusLabel = ORDER_STATUS_LABELS[o.status] ?? o.status;
                 const statusColor =
-                  entry.status === "DELIVERED" || entry.status === "COMPLETED"
-                    ? "bg-[#00D4AA]/10 text-[#00D4AA]"
-                    : entry.status === "CANCELLED"
-                    ? "bg-red-500/10 text-red-400"
-                    : entry.status === "QUOTED"
-                    ? "bg-purple-500/10 text-purple-400"
-                    : "bg-[#FF6B35]/10 text-[#FF6B35]";
+                  o.status === "DELIVERED" ? "bg-[#00D4AA]/10 text-[#00D4AA]" :
+                  o.status === "CANCELLED" ? "bg-red-500/10 text-red-400" :
+                  "bg-[#FF6B35]/10 text-[#FF6B35]";
                 return (
-                  <div key={entry.id} className="p-4 bg-white/[0.03] border border-white/10 rounded-2xl flex items-center justify-between gap-3">
+                  <Link key={o.id} href="/account/orders" className="p-4 bg-white/[0.03] border border-white/10 rounded-2xl flex items-center justify-between gap-3 hover:border-white/20 transition-colors block">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                        isOrder ? "bg-white/5" : isPrint ? "bg-[#FF6B35]/10" : "bg-[#00D4AA]/10"
-                      }`}>
-                        {isOrder
-                          ? <Package size={13} className="text-white/40" />
-                          : isPrint
-                          ? <Zap size={13} className="text-[#FF6B35]" />
-                          : <Scan size={13} className="text-[#00D4AA]" />
-                        }
+                      <div className="w-7 h-7 rounded-lg bg-white/5 flex items-center justify-center flex-shrink-0">
+                        <Package size={13} className="text-white/40" />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-white text-sm font-medium truncate">{entry.label}</p>
+                        <p className="text-white text-sm font-medium">Sipariş #{o.id.slice(-8).toUpperCase()}</p>
                         <p className="text-white/40 text-xs mt-0.5">
-                          {entry.sub} · {entry.date.toLocaleDateString("tr-TR")}
+                          {o.items.length} ürün · {o.createdAt.toLocaleDateString("tr-TR")}
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3 flex-shrink-0">
-                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${statusColor}`}>
-                        {statusLabel}
-                      </span>
-                      {entry.amount !== null && (
-                        <span className="text-white font-semibold text-sm">{formatPrice(entry.amount)}</span>
-                      )}
+                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${statusColor}`}>{statusLabel}</span>
+                      <span className="text-white font-semibold text-sm">{formatPrice(Number(o.totalAmount))}</span>
                     </div>
-                  </div>
+                  </Link>
                 );
               })}
             </div>
           )}
+        </div>
+
+        {/* 3D Baskı & Tarama Hizmetleri */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-white font-bold flex items-center gap-2">
+              <Zap size={18} className="text-[#FF6B35]" />
+              3D Hizmetlerim
+              {totalServiceActive > 0 && (
+                <span className="text-[11px] bg-[#FF6B35]/20 text-[#FF6B35] px-2 py-0.5 rounded-full font-semibold">
+                  {totalServiceActive} aktif
+                </span>
+              )}
+            </h2>
+            <Link href="/account/orders?tab=print" className="text-[#FF6B35] text-sm hover:underline flex items-center gap-1">
+              Tümünü Gör <ChevronRight size={14} />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Link href="/account/orders?tab=print" className="p-4 bg-white/[0.03] border border-white/10 rounded-2xl hover:border-[#FF6B35]/30 transition-all group">
+              <div className="flex items-center justify-between mb-2">
+                <Zap size={18} className="text-[#FF6B35]" />
+                {activePrintCount > 0 && (
+                  <span className="text-[10px] bg-[#FF6B35]/20 text-[#FF6B35] px-1.5 py-0.5 rounded-full font-bold">{activePrintCount} aktif</span>
+                )}
+              </div>
+              <p className="text-white font-medium text-sm">3D Baskı</p>
+              <p className="text-white/40 text-xs mt-0.5">
+                {printRequests.length > 0 ? `${printRequests.length} talep` : "Talep yok"}
+              </p>
+            </Link>
+            <Link href="/account/orders?tab=scan" className="p-4 bg-white/[0.03] border border-white/10 rounded-2xl hover:border-[#00D4AA]/30 transition-all group">
+              <div className="flex items-center justify-between mb-2">
+                <Scan size={18} className="text-[#00D4AA]" />
+                {activeScanCount > 0 && (
+                  <span className="text-[10px] bg-[#00D4AA]/20 text-[#00D4AA] px-1.5 py-0.5 rounded-full font-bold">{activeScanCount} aktif</span>
+                )}
+              </div>
+              <p className="text-white font-medium text-sm">3D Tarama</p>
+              <p className="text-white/40 text-xs mt-0.5">
+                {scanRequests.length > 0 ? `${scanRequests.length} talep` : "Talep yok"}
+              </p>
+            </Link>
+          </div>
         </div>
 
         {/* Teknik Servis Talepleri */}

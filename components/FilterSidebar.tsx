@@ -190,20 +190,21 @@ export function FilterSidebar({ categories, brands, showMaterialFilter }: Filter
         {/* Stok */}
         <div className="flex items-center gap-3">
           <button
+            type="button"
             onClick={() =>
               router.push(`${pathname}?${createQueryString("inStock", inStock ? "" : "true")}`)
             }
-            className={`relative w-11 h-6 rounded-full transition-colors ${
+            className={`relative inline-flex flex-shrink-0 w-11 h-6 rounded-full transition-colors cursor-pointer ${
               inStock ? "bg-[#FF6B35]" : "bg-white/10"
             }`}
           >
             <span
-              className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
+              className={`inline-block w-4 h-4 bg-white rounded-full shadow transition-transform self-center ${
                 inStock ? "translate-x-6" : "translate-x-1"
               }`}
             />
           </button>
-          <span className="text-white/60 text-sm">Sadece stokta olanlar</span>
+          <span className="text-white/60 text-sm select-none">Sadece stokta olanlar</span>
         </div>
       </div>
     </aside>

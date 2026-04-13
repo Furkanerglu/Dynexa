@@ -24,7 +24,7 @@ export default function PrintServicePage() {
             Hizmet
           </p>
           <h1 className="text-3xl md:text-5xl font-black tracking-tighter text-white mb-4">
-            Print-on-Demand
+            Talep Üzerine 3D Baskı
           </h1>
           <p className="text-white/40 max-w-lg mx-auto">
             STL dosyanızı yükleyin, tercihlerinizi seçin ve fiyat teklifimizi bekleyin.

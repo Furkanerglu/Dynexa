@@ -145,10 +145,10 @@ export default async function ShopPage({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-10">
           <p className="text-[#FF6B35] text-sm font-medium tracking-widest uppercase mb-2">
-            Mağaza
+            Ürünler
           </p>
           <h1 className="text-3xl md:text-4xl font-black tracking-tighter text-white">
-            3D Baskı Ürünleri
+            3D Yazıcı Parçaları
           </h1>
           <p className="text-white/40 mt-2 text-sm">
             Figürler, dekorasyon, koleksiyon ve daha fazlası — hepsi 3D baskı ile üretildi.

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { formatPrice } from "@/lib/utils";
 import { Package, XCircle, ChevronDown, ChevronUp, Zap, Scan, CheckCircle2, ShoppingCart, Clock, Wrench, BoxIcon, Truck, CircleCheck, ExternalLink } from "lucide-react";
@@ -310,16 +311,26 @@ export default function OrdersClient({ initialOrders, initialPrint, initialScan 
   initialPrint:  SR[];
   initialScan:   SR[];
 }) {
+  const searchParams = useSearchParams();
   const [orders, setOrders] = useState<Order[]>(initialOrders);
   const [print,  setPrint]  = useState<SR[]>(initialPrint);
   const [scan,   setScan]   = useState<SR[]>(initialScan);
   const [tab, setTab]       = useState<"orders" | "print" | "scan">(() => {
+    const urlTab = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("tab") : null;
+    if (urlTab === "print") return "print";
+    if (urlTab === "scan")  return "scan";
     const hasQuotedPrint = initialPrint.some(r => r.status === "QUOTED");
     const hasQuotedScan  = initialScan.some(r  => r.status === "QUOTED");
     if (hasQuotedPrint) return "print";
     if (hasQuotedScan)  return "scan";
     return "orders";
   });
+
+  // URL param değişince sekmeyi güncelle
+  useEffect(() => {
+    const t = searchParams.get("tab");
+    if (t === "print" || t === "scan" || t === "orders") setTab(t);
+  }, [searchParams]);
 
   const quotedPrint = print.filter(r => r.status === "QUOTED").length;
   const quotedScan  = scan.filter(r  => r.status === "QUOTED").length;

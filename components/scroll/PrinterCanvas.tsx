@@ -213,7 +213,7 @@ export function PrinterCanvas() {
                 <h2 className="text-4xl md:text-6xl lg:text-7xl font-black tracking-tighter text-white mb-4 leading-none">
                   {section.title}
                 </h2>
-                <p className="text-lg md:text-xl text-white/55 font-light tracking-wide mb-8">
+                <p className="text-lg md:text-xl text-white font-normal tracking-wide mb-8 drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)]" style={{ textShadow: "0 1px 20px rgba(0,0,0,0.8)" }}>
                   {section.subtitle}
                 </p>
                 {section.cta && (
