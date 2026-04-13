@@ -56,7 +56,7 @@ export function ProductImageGallery({ images, name }: { images: string[]; name: 
               key={i}
               type="button"
               onClick={() => setActive(i)}
-              className={`relative w-[64px] h-[64px] rounded-xl overflow-hidden border-2 transition-all bg-[#020202] flex-shrink-0 ${
+              className={`relative w-[64px] h-[64px] rounded-xl overflow-hidden border-2 transition-all bg-white flex-shrink-0 ${
                 active === i
                   ? "border-[#FF6B35] shadow-[0_0_12px_#FF6B3540]"
                   : "border-white/10 hover:border-white/30 opacity-60 hover:opacity-100"
@@ -81,7 +81,7 @@ export function ProductImageGallery({ images, name }: { images: string[]; name: 
         ref={containerRef}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
-        className="relative flex-1 h-96 bg-[#020202] rounded-2xl overflow-hidden border border-white/10 select-none"
+        className="relative flex-1 h-96 bg-white rounded-2xl overflow-hidden border border-white/10 select-none"
         style={{ cursor: zoomPos ? "crosshair" : "default" }}
       >
         {/* Temel görsel */}
@@ -106,7 +106,7 @@ export function ProductImageGallery({ images, name }: { images: string[]; name: 
               backgroundSize:     `${ZOOM * 100}%`,
               backgroundPosition: `${zoomPos.x}% ${zoomPos.y}%`,
               backgroundRepeat:   "no-repeat",
-              backgroundColor:    "#020202",
+              backgroundColor:    "#ffffff",
             }}
           />
         )}
