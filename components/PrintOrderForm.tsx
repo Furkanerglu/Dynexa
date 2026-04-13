@@ -26,8 +26,8 @@ const QUALITY_LABELS: Record<string, string> = {
 };
 
 // ─── Tipler ───────────────────────────────────────────────────────────────────
-type APIMaterial = { id: string; name: string; description: string; pricePerGram: number; inStock: boolean };
 type APIColor    = { id: string; name: string; hex: string; inStock: boolean };
+type APIMaterial = { id: string; name: string; description: string; pricePerGram: number; inStock: boolean; colors: APIColor[] };
 
 // ─── Schema (dinamik malzeme/renk) ───────────────────────────────────────────
 const schema = z.object({
@@ -50,22 +50,19 @@ export function PrintOrderForm() {
 
   // API'den gelen malzeme ve renkler
   const [apiMaterials, setApiMaterials] = useState<APIMaterial[]>([]);
-  const [apiColors,    setApiColors]    = useState<APIColor[]>([]);
   const [optionsLoading, setOptionsLoading] = useState(true);
 
   useEffect(() => {
     fetch("/api/print-options")
       .then(r => r.json())
-      .then(({ materials, colors }) => {
+      .then(({ materials }) => {
         setApiMaterials(materials ?? []);
-        setApiColors(colors ?? []);
       })
       .catch(() => {})
       .finally(() => setOptionsLoading(false));
   }, []);
 
   const availableMaterials = apiMaterials.filter(m => m.inStock);
-  const availableColors    = apiColors.filter(c => c.inStock);
 
   // Seçilen dosyalar (henüz upload edilmemiş)
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
@@ -101,6 +98,7 @@ export function PrintOrderForm() {
   const needs   = watch("needsSupports");
 
   const selectedMat    = apiMaterials.find(m => m.name === mat);
+  const availableColors = selectedMat ? selectedMat.colors.filter(c => c.inStock) : [];
   const basePrice      = (selectedMat?.pricePerGram ?? 0) * (QUALITY_MULTIPLIERS[quality] || 1.5) * weight;
   const estimatedPrice = basePrice;
   const overTimeNote   = hours > 2;
@@ -358,9 +356,13 @@ export function PrintOrderForm() {
             <div className="flex items-center gap-2 text-white/30 text-sm py-3">
               <Loader2 size={14} className="animate-spin" /> Yükleniyor...
             </div>
+          ) : !mat ? (
+            <div className="p-3 bg-white/[0.03] border border-white/10 rounded-xl text-white/30 text-sm">
+              Önce malzeme seçin
+            </div>
           ) : availableColors.length === 0 ? (
             <div className="p-3 bg-yellow-400/[0.07] border border-yellow-400/20 rounded-xl text-yellow-300/70 text-sm">
-              Şu an stokta renk bulunmuyor.
+              Bu malzeme için stokta renk bulunmuyor.
             </div>
           ) : (
             <div className="flex flex-wrap gap-2">
