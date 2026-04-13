@@ -12,7 +12,7 @@ const updateSchema = z.object({
   brand: z.string().optional(),
   isActive: z.boolean().optional(),
   images: z.array(z.string()).optional(),
-  specs: z.record(z.unknown()).optional(),
+  specs: z.record(z.unknown()).nullable().optional(),
 });
 
 export async function GET(

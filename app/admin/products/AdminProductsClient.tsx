@@ -306,9 +306,13 @@ export default function AdminProductsClient({ initialProducts, categories }: Pro
       const existingSpecs = editingProduct?.specs
         ? Object.fromEntries(Object.entries(editingProduct.specs).filter(([k]) => k !== "features"))
         : {};
-      const specsPayload = features.length > 0
-        ? { ...existingSpecs, features }
-        : Object.keys(existingSpecs).length > 0 ? existingSpecs : undefined;
+      // features boş ise features key'ini kaldır; diğer specs varsa koru, yoksa null ile temizle
+      const specsPayload: Record<string, unknown> | null =
+        features.length > 0
+          ? { ...existingSpecs, features }
+          : Object.keys(existingSpecs).length > 0
+            ? existingSpecs
+            : null;
 
       const payload = {
         ...data,
@@ -316,7 +320,7 @@ export default function AdminProductsClient({ initialProducts, categories }: Pro
         salePrice: data.salePrice !== "" && data.salePrice ? Number(data.salePrice) : null,
         stock:     Number(data.stock),
         images,
-        ...(specsPayload !== undefined ? { specs: specsPayload } : {}),
+        specs:     specsPayload,
       };
 
       const res = await fetch(
