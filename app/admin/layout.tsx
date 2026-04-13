@@ -1,15 +1,16 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { LayoutDashboard, Package, ShoppingCart, Wrench, Users, Bell } from "lucide-react";
+import { LayoutDashboard, Package, ShoppingCart, Wrench, Users, Bell, Layers } from "lucide-react";
 
 const navItems = [
-  { href: "/admin",               icon: LayoutDashboard, label: "Dashboard" },
-  { href: "/admin/products",      icon: Package,         label: "Ürünler" },
-  { href: "/admin/orders",        icon: ShoppingCart,    label: "Siparişler" },
-  { href: "/admin/services",      icon: Wrench,          label: "Servisler" },
-  { href: "/admin/users",         icon: Users,           label: "Kullanıcılar" },
-  { href: "/admin/notifications", icon: Bell,            label: "Bildirimler" },
+  { href: "/admin",                    icon: LayoutDashboard, label: "Dashboard" },
+  { href: "/admin/products",           icon: Package,         label: "Ürünler" },
+  { href: "/admin/orders",             icon: ShoppingCart,    label: "Siparişler" },
+  { href: "/admin/services",           icon: Wrench,          label: "Servisler" },
+  { href: "/admin/print-options",      icon: Layers,          label: "Filament Stok" },
+  { href: "/admin/users",              icon: Users,           label: "Kullanıcılar" },
+  { href: "/admin/notifications",      icon: Bell,            label: "Bildirimler" },
 ];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {

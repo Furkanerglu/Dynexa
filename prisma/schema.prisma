@@ -220,3 +220,20 @@ enum NotificationType {
   DISCOUNT
   INFO
 }
+
+model PrintMaterial {
+  id           String  @id @default(cuid())
+  name         String  @unique
+  description  String  @default("")
+  pricePerGram Float   @default(7)
+  inStock      Boolean @default(true)
+  sortOrder    Int     @default(0)
+}
+
+model PrintColor {
+  id        String  @id @default(cuid())
+  name      String  @unique
+  hex       String  @default("#888888")
+  inStock   Boolean @default(true)
+  sortOrder Int     @default(0)
+}

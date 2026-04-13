@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -10,23 +10,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useUploadThing } from "@/lib/uploadthing-client";
 
-// ─── Fiyatlandırma ───────────────────────────────────────────────────────────
-const MATERIAL_PRICES: Record<string, number> = {
-  PLA:  7,
-  PETG: 7,
-  ABS:  10,
-  TPU:  12,
-  ASA:  10,
-};
-
-const MATERIAL_DESC: Record<string, string> = {
-  PLA:  "Kolay baskı, genel amaçlı",
-  PETG: "Dayanıklı, hafif esnek",
-  ABS:  "Isıya dayanıklı, sert",
-  TPU:  "Esnek, lastik benzeri",
-  ASA:  "UV dayanımlı, dış mekan",
-};
-
+// ─── Kalite sabitleri (DB'de tutulmaz) ───────────────────────────────────────
 const QUALITY_MULTIPLIERS: Record<string, number> = {
   draft:    1.0,
   standard: 1.5,
@@ -41,16 +25,15 @@ const QUALITY_LABELS: Record<string, string> = {
   ultra:    "Ultra (0.05mm) — Mükemmel detay",
 };
 
-const COLORS = [
-  "Siyah", "Beyaz", "Gri", "Kırmızı", "Mavi", "Yeşil",
-  "Sarı", "Turuncu", "Mor", "Kahverengi",
-];
+// ─── Tipler ───────────────────────────────────────────────────────────────────
+type APIMaterial = { id: string; name: string; description: string; pricePerGram: number; inStock: boolean };
+type APIColor    = { id: string; name: string; hex: string; inStock: boolean };
 
-// ─── Schema ──────────────────────────────────────────────────────────────────
+// ─── Schema (dinamik malzeme/renk) ───────────────────────────────────────────
 const schema = z.object({
   title:           z.string().min(3, "Başlık en az 3 karakter olmalıdır"),
   description:     z.string().min(20, "Açıklama en az 20 karakter olmalıdır"),
-  material:        z.enum(["PLA", "PETG", "ABS", "TPU", "ASA"]),
+  material:        z.string().min(1, "Malzeme seçiniz"),
   quality:         z.enum(["draft", "standard", "fine", "ultra"]),
   color:           z.string().min(1, "Renk seçiniz"),
   estimatedWeight: z.coerce.number().min(1, "Tahmini ağırlık giriniz"),
@@ -64,6 +47,25 @@ type FormData = z.infer<typeof schema>;
 export function PrintOrderForm() {
   const { data: session } = useSession();
   const router = useRouter();
+
+  // API'den gelen malzeme ve renkler
+  const [apiMaterials, setApiMaterials] = useState<APIMaterial[]>([]);
+  const [apiColors,    setApiColors]    = useState<APIColor[]>([]);
+  const [optionsLoading, setOptionsLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/print-options")
+      .then(r => r.json())
+      .then(({ materials, colors }) => {
+        setApiMaterials(materials ?? []);
+        setApiColors(colors ?? []);
+      })
+      .catch(() => {})
+      .finally(() => setOptionsLoading(false));
+  }, []);
+
+  const availableMaterials = apiMaterials.filter(m => m.inStock);
+  const availableColors    = apiColors.filter(c => c.inStock);
 
   // Seçilen dosyalar (henüz upload edilmemiş)
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
@@ -83,9 +85,9 @@ export function PrintOrderForm() {
   } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
-      material:        "PLA",
+      material:        "",
       quality:         "standard",
-      color:           "Siyah",
+      color:           "",
       estimatedWeight: 50,
       estimatedHours:  0,
       needsSupports:   false,
@@ -98,7 +100,8 @@ export function PrintOrderForm() {
   const hours   = watch("estimatedHours")  || 0;
   const needs   = watch("needsSupports");
 
-  const basePrice      = MATERIAL_PRICES[mat] * (QUALITY_MULTIPLIERS[quality] || 1.5) * weight;
+  const selectedMat    = apiMaterials.find(m => m.name === mat);
+  const basePrice      = (selectedMat?.pricePerGram ?? 0) * (QUALITY_MULTIPLIERS[quality] || 1.5) * weight;
   const estimatedPrice = basePrice;
   const overTimeNote   = hours > 2;
 
@@ -303,24 +306,35 @@ export function PrintOrderForm() {
       {/* Malzeme */}
       <div>
         <label className="text-white/60 text-sm mb-2 block">Malzeme</label>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {Object.entries(MATERIAL_PRICES).map(([m, price]) => (
-            <label key={m} className="cursor-pointer">
-              <input {...register("material")} type="radio" value={m} className="sr-only" />
-              <div className={`px-3 py-2.5 rounded-xl border transition-all ${
-                mat === m
-                  ? "bg-[#FF6B35]/10 border-[#FF6B35] text-[#FF6B35]"
-                  : "border-white/10 text-white/50 hover:border-white/30 hover:text-white/70"
-              }`}>
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-sm">{m}</span>
-                  <span className="text-xs font-bold">{price}₺/g</span>
+        {optionsLoading ? (
+          <div className="flex items-center gap-2 text-white/30 text-sm py-4">
+            <Loader2 size={16} className="animate-spin" /> Malzemeler yükleniyor...
+          </div>
+        ) : availableMaterials.length === 0 ? (
+          <div className="p-4 bg-yellow-400/[0.07] border border-yellow-400/20 rounded-xl text-yellow-300/70 text-sm">
+            Şu an stokta malzeme bulunmuyor. Lütfen daha sonra tekrar deneyin.
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {availableMaterials.map((m) => (
+              <label key={m.id} className="cursor-pointer">
+                <input {...register("material")} type="radio" value={m.name} className="sr-only" />
+                <div className={`px-3 py-2.5 rounded-xl border transition-all ${
+                  mat === m.name
+                    ? "bg-[#FF6B35]/10 border-[#FF6B35] text-[#FF6B35]"
+                    : "border-white/10 text-white/50 hover:border-white/30 hover:text-white/70"
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-sm">{m.name}</span>
+                    <span className="text-xs font-bold">{m.pricePerGram}₺/g</span>
+                  </div>
+                  {m.description && <p className="text-[10px] mt-0.5 opacity-70">{m.description}</p>}
                 </div>
-                <p className="text-[10px] mt-0.5 opacity-70">{MATERIAL_DESC[m]}</p>
-              </div>
-            </label>
-          ))}
-        </div>
+              </label>
+            ))}
+          </div>
+        )}
+        {errors.material && <p className="text-red-400 text-xs mt-1">{errors.material.message}</p>}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -340,12 +354,32 @@ export function PrintOrderForm() {
         {/* Renk */}
         <div>
           <label className="text-white/60 text-sm mb-2 block">Renk</label>
-          <select
-            {...register("color")}
-            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:border-[#FF6B35] focus:outline-none text-sm"
-          >
-            {COLORS.map((c) => <option key={c} value={c} className="bg-[#0a0a0a]">{c}</option>)}
-          </select>
+          {optionsLoading ? (
+            <div className="flex items-center gap-2 text-white/30 text-sm py-3">
+              <Loader2 size={14} className="animate-spin" /> Yükleniyor...
+            </div>
+          ) : availableColors.length === 0 ? (
+            <div className="p-3 bg-yellow-400/[0.07] border border-yellow-400/20 rounded-xl text-yellow-300/70 text-sm">
+              Şu an stokta renk bulunmuyor.
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {availableColors.map((c) => (
+                <label key={c.id} className="cursor-pointer">
+                  <input {...register("color")} type="radio" value={c.name} className="sr-only" />
+                  <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-all text-sm ${
+                    watch("color") === c.name
+                      ? "border-[#FF6B35] bg-[#FF6B35]/10 text-[#FF6B35]"
+                      : "border-white/10 text-white/60 hover:border-white/30"
+                  }`}>
+                    <span className="w-3.5 h-3.5 rounded-full border border-white/20 flex-shrink-0" style={{ backgroundColor: c.hex }} />
+                    {c.name}
+                  </div>
+                </label>
+              ))}
+            </div>
+          )}
+          {errors.color && <p className="text-red-400 text-xs mt-1">{errors.color.message}</p>}
         </div>
 
         {/* Tahmini Ağırlık */}
@@ -415,7 +449,7 @@ export function PrintOrderForm() {
         <div className="text-[11px] text-white/30 space-y-0.5 border-t border-white/5 pt-2">
           <div className="flex justify-between">
             <span>{mat} birim fiyat</span>
-            <span>{MATERIAL_PRICES[mat]}₺/gram</span>
+            <span>{selectedMat?.pricePerGram ?? 0}₺/gram</span>
           </div>
           <div className="flex justify-between">
             <span>Kalite çarpanı ({quality})</span>
