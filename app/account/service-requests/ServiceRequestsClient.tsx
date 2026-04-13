@@ -2,15 +2,13 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Wrench, CheckCircle2, XCircle, ChevronDown, ChevronUp, CreditCard, Download } from "lucide-react";
+import { Wrench, CheckCircle2, XCircle, ChevronDown, ChevronUp, Download } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { formatPrice } from "@/lib/utils";
 import { parseFileEntry, downloadFile } from "@/lib/fileEntry";
 
 // ─── Sabitler ────────────────────────────────────────────────────────────────
 
-// Temel durum renkleri — label tip bazında override edilir
 const STATUS_COLORS: Record<string, string> = {
   PENDING:     "text-yellow-400 bg-yellow-400/10 border-yellow-400/30",
   REVIEWING:   "text-blue-400 bg-blue-400/10 border-blue-400/30",
@@ -21,23 +19,15 @@ const STATUS_COLORS: Record<string, string> = {
   CANCELLED:   "text-red-400 bg-red-400/10 border-red-400/30",
 };
 
-// Durum etiketini talep tipine göre döndürür
-function getStatusLabel(status: string, type: string): string {
-  const isPriceService = type === "PRINT" || type === "SCANNING";
-  if (status === "PENDING" && isPriceService) return "Fiyat Teklifi Hazırlanıyor";
-  if (status === "REVIEWING" && isPriceService) return "Fiyat Teklifi Hazırlanıyor";
-  if (status === "QUOTED" && isPriceService) return "Fiyat Teklifi Verildi";
-  const base: Record<string, string> = {
-    PENDING:     "Beklemede",
-    REVIEWING:   "İnceleniyor",
-    QUOTED:      "Fiyat Verildi",
-    CONFIRMED:   "Onaylandı",
-    IN_PROGRESS: "İşlemde",
-    COMPLETED:   "Tamamlandı",
-    CANCELLED:   "İptal",
-  };
-  return base[status] ?? status;
-}
+const STATUS_LABELS: Record<string, string> = {
+  PENDING:     "Beklemede",
+  REVIEWING:   "İnceleniyor",
+  QUOTED:      "Fiyat Teklifi Hazır",
+  CONFIRMED:   "Onaylandı",
+  IN_PROGRESS: "İşlemde",
+  COMPLETED:   "Tamamlandı",
+  CANCELLED:   "İptal",
+};
 
 type SR = {
   id: string; type: string; status: string; title: string; description: string;
@@ -52,15 +42,17 @@ function ServiceCard({ sr, onRespond }: {
   sr: SR;
   onRespond: (id: string, action: "approve" | "reject") => Promise<void>;
 }) {
-  const router   = useRouter();
   const [open,    setOpen]    = useState(sr.status === "QUOTED");
   const [loading, setLoading] = useState(false);
 
-  const statusLabel = getStatusLabel(sr.status, sr.type);
+  const statusLabel = STATUS_LABELS[sr.status] ?? sr.status;
   const statusColor = STATUS_COLORS[sr.status] ?? STATUS_COLORS.PENDING;
   const isQuoted    = sr.status === "QUOTED";
-  // PRINT/SCANNING fiyat onayı ödeme gerektiriyor; TECHNICAL doğrudan onaylanıyor
-  const isPriceService = sr.type === "PRINT" || sr.type === "SCANNING";
+
+  async function handleApprove() {
+    setLoading(true);
+    try { await onRespond(sr.id, "approve"); } finally { setLoading(false); }
+  }
 
   async function handleReject() {
     setLoading(true);
@@ -73,7 +65,7 @@ function ServiceCard({ sr, onRespond }: {
         <div className="bg-purple-400/10 border-b border-purple-400/20 px-5 py-2 flex items-center gap-2">
           <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
           <p className="text-purple-300 text-xs font-medium">
-            {isPriceService ? "Fiyat teklifi hazır — ödeme yaparak talebinizi onaylayın" : "Fiyat teklifi hazır — onayınızı bekliyoruz"}
+            Fiyat teklifi hazır — onayınızı bekliyoruz
           </p>
         </div>
       )}
@@ -121,7 +113,9 @@ function ServiceCard({ sr, onRespond }: {
 
           {sr.files.length > 0 && (
             <div>
-              <p className="text-[11px] text-white/30 uppercase tracking-wide mb-2">Dosyalar</p>
+              <p className="text-[11px] text-white/30 uppercase tracking-wide mb-2">
+                Dosyalar <span className="text-white/20 normal-case">({sr.files.length})</span>
+              </p>
               <div className="flex flex-wrap gap-2">
                 {sr.files.map((entry, i) => {
                   const { url, name } = parseFileEntry(entry);
@@ -145,51 +139,24 @@ function ServiceCard({ sr, onRespond }: {
             </div>
           )}
 
-          {/* ── Fiyat teklifi aksiyon bloğu ── */}
+          {/* ── Fiyat teklifi aksiyon bloğu (sadece TECHNICAL) ── */}
           {isQuoted && sr.price !== null && (
             <div className="bg-purple-400/[0.06] border border-purple-400/25 rounded-2xl p-4 space-y-3">
               <div>
                 <p className="text-white/50 text-xs uppercase tracking-wide mb-0.5">Fiyat Teklifi</p>
                 <p className="text-2xl font-black text-purple-300">{formatPrice(sr.price)}</p>
               </div>
-
-              {isPriceService ? (
-                /* PRINT / SCANNING — ödeme gerekli */
-                <>
-                  <p className="text-white/40 text-xs">
-                    Fiyatı onaylamak için ödeme yapmanız gerekiyor. Ödeme tamamlandıktan sonra talebiniz işleme alınır.
-                  </p>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => router.push(`/checkout/service/${sr.id}`)}
-                      disabled={loading}
-                      className="flex-1 flex items-center justify-center gap-2 bg-[#00D4AA] hover:bg-[#00bfa0] text-black font-bold text-sm py-2.5 rounded-xl transition-colors disabled:opacity-50"
-                    >
-                      <CreditCard size={16} /> Ödemeye Geç
-                    </button>
-                    <button onClick={handleReject} disabled={loading}
-                      className="flex items-center justify-center gap-2 bg-red-500/15 hover:bg-red-500/25 text-red-400 border border-red-500/30 font-semibold text-sm px-4 py-2.5 rounded-xl transition-colors disabled:opacity-50">
-                      <XCircle size={16} /> Reddet
-                    </button>
-                  </div>
-                </>
-              ) : (
-                /* TECHNICAL — doğrudan onayla/reddet */
-                <>
-                  <p className="text-white/40 text-xs">Fiyatı onaylarsanız talebiniz işleme alınır. Reddederseniz talep iptal edilir.</p>
-                  <div className="flex gap-2">
-                    <button onClick={async () => { setLoading(true); try { await onRespond(sr.id, "approve"); } finally { setLoading(false); } }}
-                      disabled={loading}
-                      className="flex-1 flex items-center justify-center gap-2 bg-[#00D4AA] hover:bg-[#00bfa0] text-black font-bold text-sm py-2.5 rounded-xl transition-colors disabled:opacity-50">
-                      <CheckCircle2 size={16} /> Onayla
-                    </button>
-                    <button onClick={handleReject} disabled={loading}
-                      className="flex-1 flex items-center justify-center gap-2 bg-red-500/15 hover:bg-red-500/25 text-red-400 border border-red-500/30 font-semibold text-sm py-2.5 rounded-xl transition-colors disabled:opacity-50">
-                      <XCircle size={16} /> Reddet
-                    </button>
-                  </div>
-                </>
-              )}
+              <p className="text-white/40 text-xs">Fiyatı onaylarsanız talebiniz işleme alınır. Reddederseniz talep iptal edilir.</p>
+              <div className="flex gap-2">
+                <button onClick={handleApprove} disabled={loading}
+                  className="flex-1 flex items-center justify-center gap-2 bg-[#00D4AA] hover:bg-[#00bfa0] text-black font-bold text-sm py-2.5 rounded-xl transition-colors disabled:opacity-50">
+                  <CheckCircle2 size={16} /> Onayla
+                </button>
+                <button onClick={handleReject} disabled={loading}
+                  className="flex-1 flex items-center justify-center gap-2 bg-red-500/15 hover:bg-red-500/25 text-red-400 border border-red-500/30 font-semibold text-sm py-2.5 rounded-xl transition-colors disabled:opacity-50">
+                  <XCircle size={16} /> Reddet
+                </button>
+              </div>
             </div>
           )}
 
@@ -228,15 +195,10 @@ export default function ServiceRequestsClient({ initialRequests }: { initialRequ
     return (
       <div className="text-center py-24">
         <Wrench size={64} className="mx-auto text-white/10 mb-4" />
-        <p className="text-white/40 mb-6">Henüz servis talebiniz yok</p>
-        <div className="flex gap-3 justify-center">
-          <Link href="/services/print" className="px-4 py-2 bg-[#FF6B35] text-white rounded-xl text-sm font-semibold">
-            3D Baskı Talebi
-          </Link>
-          <Link href="/services/technical" className="px-4 py-2 bg-white/10 text-white rounded-xl text-sm font-semibold">
-            Teknik Servis
-          </Link>
-        </div>
+        <p className="text-white/40 mb-6">Henüz teknik servis talebiniz yok</p>
+        <Link href="/services/technical" className="px-4 py-2 bg-[#FF6B35] text-white rounded-xl text-sm font-semibold">
+          Teknik Servis Talebi Oluştur
+        </Link>
       </div>
     );
   }

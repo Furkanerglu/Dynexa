@@ -188,7 +188,7 @@ export function PrintOrderForm() {
 
       if (!res.ok) throw new Error("Talep gönderilemedi");
       toast.success("Baskı talebiniz alındı! En kısa sürede fiyat teklifi sunacağız.");
-      router.push("/account/service-requests");
+      router.push("/account/orders");
     } catch {
       toast.error("Bir hata oluştu, lütfen tekrar deneyin");
     } finally {

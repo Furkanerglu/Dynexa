@@ -72,7 +72,7 @@ export default function ScanningServicePage() {
 
       if (!res.ok) throw new Error();
       toast.success("Tarama talebiniz alındı! Randevu için sizi arayacağız.");
-      router.push("/account/service-requests");
+      router.push("/account/orders");
     } catch {
       toast.error("Bir hata oluştu");
     } finally {

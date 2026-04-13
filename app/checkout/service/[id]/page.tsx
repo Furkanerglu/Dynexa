@@ -27,10 +27,10 @@ export default async function ServiceCheckoutPage({
   });
 
   if (!service) notFound();
-  if (service.userId !== session.user.id) redirect("/account/service-requests");
-  if (service.status !== "QUOTED") redirect("/account/service-requests");
-  if (!["PRINT", "SCANNING"].includes(service.type)) redirect("/account/service-requests");
-  if (!service.price) redirect("/account/service-requests");
+  if (service.userId !== session.user.id) redirect("/account/orders");
+  if (service.status !== "QUOTED") redirect("/account/orders");
+  if (!["PRINT", "SCANNING"].includes(service.type)) redirect("/account/orders");
+  if (!service.price) redirect("/account/orders");
 
   return (
     <ServiceCheckoutClient

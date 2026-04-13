@@ -13,7 +13,7 @@ export default async function ServiceRequestsPage() {
   let requests: import("@prisma/client").ServiceRequest[] = [];
   try {
     requests = await prisma.serviceRequest.findMany({
-      where:   { userId: session.user.id },
+      where:   { userId: session.user.id, type: "TECHNICAL" },
       orderBy: { createdAt: "desc" },
     });
   } catch {
@@ -37,7 +37,7 @@ export default async function ServiceRequestsPage() {
           </Link>
           <h1 className="text-2xl font-bold text-white flex items-center gap-2">
             <Wrench size={22} className="text-[#FF6B35]" />
-            Servis Taleplerim
+            Teknik Servis Taleplerim
           </h1>
         </div>
 

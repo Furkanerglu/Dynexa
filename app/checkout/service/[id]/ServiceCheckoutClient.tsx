@@ -99,7 +99,7 @@ export default function ServiceCheckoutClient({ service }: { service: ServiceInf
             Talebiniz ekibimize iletildi. En kısa sürede işleme alınacak.
           </p>
           <Link
-            href="/account/service-requests"
+            href="/account/orders"
             className="inline-block px-6 py-3 bg-[#FF6B35] hover:bg-[#e55a28] text-white font-semibold rounded-xl transition-colors text-sm"
           >
             Taleplerime Dön
@@ -115,7 +115,7 @@ export default function ServiceCheckoutClient({ service }: { service: ServiceInf
 
         {/* Geri butonu */}
         <Link
-          href="/account/service-requests"
+          href="/account/orders"
           className="inline-flex items-center gap-2 text-white/40 hover:text-white text-sm mb-8 transition-colors"
         >
           <ArrowLeft size={15} /> Taleplerime Dön

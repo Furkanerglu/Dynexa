@@ -11,7 +11,7 @@ async function getAdminStats() {
       await Promise.all([
         prisma.order.aggregate({ where: { paymentStatus: "PAID" }, _sum: { totalAmount: true } }),
         prisma.order.count(),
-        prisma.serviceRequest.count({ where: { status: "PENDING" } }),
+        prisma.serviceRequest.count({ where: { status: "PENDING", type: "TECHNICAL" } }),
         prisma.user.count({ where: { role: "USER" } }),
         prisma.order.findMany({
           take: 5,
@@ -20,6 +20,7 @@ async function getAdminStats() {
         }),
         prisma.serviceRequest.findMany({
           take: 5,
+          where:   { type: "TECHNICAL" },
           orderBy: { createdAt: "desc" },
           include: { user: { select: { name: true } } },
         }),
@@ -74,7 +75,7 @@ export default async function AdminDashboard() {
   const stats = [
     { label: "Toplam Gelir", value: formatPrice(totalRevenue), icon: TrendingUp, color: "#FF6B35" },
     { label: "Toplam Sipariş", value: totalOrders.toString(), icon: ShoppingCart, color: "#00D4AA" },
-    { label: "Bekleyen Servis", value: pendingServices.toString(), icon: Wrench, color: "#FF6B35" },
+    { label: "Bekleyen Teknik Servis", value: pendingServices.toString(), icon: Wrench, color: "#FF6B35" },
     { label: "Toplam Kullanıcı", value: totalUsers.toString(), icon: Users, color: "#00D4AA" },
   ];
 
@@ -140,7 +141,7 @@ export default async function AdminDashboard() {
         </div>
 
         <div>
-          <h2 className="text-white font-bold mb-4">Son Servis Talepleri</h2>
+          <h2 className="text-white font-bold mb-4">Son Teknik Servis Talepleri</h2>
           <div className="bg-white/[0.03] border border-white/10 rounded-2xl overflow-hidden">
             {recentServices.length === 0 ? (
               <p className="text-white/30 text-sm text-center py-10">Henüz servis talebi yok</p>
