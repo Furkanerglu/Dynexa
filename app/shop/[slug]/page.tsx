@@ -167,9 +167,12 @@ export default async function ProductDetailPage({ params }: Props) {
           </div>
         </div>
 
-        {/* ── Ürün Özellikleri Bölümleri ── */}
-        <ProductFeatures sections={features} />
+      </div>
 
+      {/* ── Ürün Özellikleri Bölümleri — tam genişlik, container dışı ── */}
+      <ProductFeatures sections={features} />
+
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* ── Yorumlar ── */}
         {product.reviews.length > 0 && (
           <div className="mt-16">
