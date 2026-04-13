@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import Image from "next/image";
 import { formatPrice } from "@/lib/utils";
 import { AddToCartButton } from "./AddToCartButton";
+import { ProductImageGallery } from "./ProductImageGallery";
 import { Package, Star, ChevronLeft } from "lucide-react";
 import Link from "next/link";
 
@@ -22,6 +23,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
+type Feature = { title: string; description: string; image?: string };
+
 export default async function ProductDetailPage({ params }: Props) {
   const { slug } = await params;
 
@@ -35,7 +38,15 @@ export default async function ProductDetailPage({ params }: Props) {
 
   if (!product) notFound();
 
-  const specs = product.specs as Record<string, string | number | boolean | string[]> | null;
+  const rawSpecs = product.specs as Record<string, unknown> | null;
+  // features'ı specs'ten ayır — ürün sayfasında ayrı render edilecek
+  const features: Feature[] = Array.isArray(rawSpecs?.features)
+    ? (rawSpecs!.features as Feature[])
+    : [];
+  const specs = rawSpecs
+    ? Object.fromEntries(Object.entries(rawSpecs).filter(([k]) => k !== "features"))
+    : null;
+
   const avgRating =
     product.reviews.length > 0
       ? product.reviews.reduce((s, r) => s + r.rating, 0) / product.reviews.length
@@ -44,6 +55,7 @@ export default async function ProductDetailPage({ params }: Props) {
   return (
     <div className="min-h-screen bg-[#020202] pt-24 pb-16">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 mb-8 text-sm text-white/40">
           <Link href="/shop" className="hover:text-white flex items-center gap-1">
@@ -57,28 +69,13 @@ export default async function ProductDetailPage({ params }: Props) {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-          {/* Image */}
-          <div className="space-y-4">
-            <div className="relative h-96 bg-white/5 rounded-2xl overflow-hidden border border-white/10">
-              <Image
-                src={product.images[0] || "/images/placeholder.jpg"}
-                alt={product.name}
-                fill
-                className="object-contain p-8"
-              />
-            </div>
-            {product.images.length > 1 && (
-              <div className="flex gap-3">
-                {product.images.slice(1).map((img, i) => (
-                  <div key={i} className="relative w-20 h-20 bg-white/5 rounded-xl overflow-hidden border border-white/10">
-                    <Image src={img} alt={`${product.name} - ${i + 2}`} fill className="object-contain p-2" />
-                  </div>
-                ))}
-              </div>
-            )}
+
+          {/* ── İnteraktif Görsel Galerisi ── */}
+          <div>
+            <ProductImageGallery images={product.images} name={product.name} />
           </div>
 
-          {/* Details */}
+          {/* ── Ürün Detayları ── */}
           <div className="space-y-6">
             {product.brand && (
               <p className="text-[#FF6B35] text-sm font-medium uppercase tracking-wider">
@@ -89,7 +86,7 @@ export default async function ProductDetailPage({ params }: Props) {
               {product.name}
             </h1>
 
-            {/* Rating */}
+            {/* Puan */}
             {avgRating && (
               <div className="flex items-center gap-2">
                 <div className="flex">
@@ -107,7 +104,7 @@ export default async function ProductDetailPage({ params }: Props) {
               </div>
             )}
 
-            {/* Price */}
+            {/* Fiyat */}
             <div className="flex items-baseline gap-3">
               <span className="text-3xl font-black text-white">
                 {formatPrice(product.salePrice ? Number(product.salePrice) : Number(product.price))}
@@ -119,7 +116,7 @@ export default async function ProductDetailPage({ params }: Props) {
               )}
             </div>
 
-            {/* Stock */}
+            {/* Stok */}
             <div className="flex items-center gap-2">
               <Package size={16} className={product.stock > 0 ? "text-[#00D4AA]" : "text-white/30"} />
               <span className={`text-sm ${product.stock > 0 ? "text-[#00D4AA]" : "text-white/30"}`}>
@@ -127,7 +124,7 @@ export default async function ProductDetailPage({ params }: Props) {
               </span>
             </div>
 
-            {/* Add to Cart */}
+            {/* Sepete Ekle */}
             <AddToCartButton
               product={{
                 id: product.id,
@@ -139,19 +136,19 @@ export default async function ProductDetailPage({ params }: Props) {
               }}
             />
 
-            {/* Description */}
+            {/* Açıklama */}
             <div className="pt-4 border-t border-white/10">
               <h3 className="text-white font-semibold mb-2">Ürün Açıklaması</h3>
               <p className="text-white/60 text-sm leading-relaxed">{product.description}</p>
             </div>
 
-            {/* Specs */}
+            {/* Teknik Özellikler (key-value) */}
             {specs && Object.keys(specs).length > 0 && (
               <div className="pt-4 border-t border-white/10">
                 <h3 className="text-white font-semibold mb-3">Teknik Özellikler</h3>
                 <div className="space-y-2">
                   {Object.entries(specs).map(([key, value]) => (
-                    <div key={key} className="flex justify-between text-sm">
+                    <div key={key} className="flex justify-between text-sm py-1.5 border-b border-white/5 last:border-0">
                       <span className="text-white/40 capitalize">{key}</span>
                       <span className="text-white/80">
                         {Array.isArray(value) ? value.join(", ") : String(value)}
@@ -164,7 +161,52 @@ export default async function ProductDetailPage({ params }: Props) {
           </div>
         </div>
 
-        {/* Reviews */}
+        {/* ── Öne Çıkan Özellikler Bölümü ── */}
+        {features.length > 0 && (
+          <div className="mt-20 space-y-6">
+            <h2 className="text-xl font-bold text-white">Ürün Özellikleri</h2>
+            {features.map((feature, i) => {
+              const isEven = i % 2 === 0;
+              return (
+                <div
+                  key={i}
+                  className="relative w-full rounded-3xl overflow-hidden border border-white/10 min-h-[260px] flex"
+                >
+                  {/* Arka plan görseli */}
+                  {feature.image && (
+                    <div className="absolute inset-0">
+                      <Image
+                        src={feature.image}
+                        alt={feature.title}
+                        fill
+                        className="object-cover"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-r from-[#020202] via-[#020202]/85 to-[#020202]/30" />
+                    </div>
+                  )}
+                  {!feature.image && (
+                    <div className="absolute inset-0 bg-gradient-to-br from-[#FF6B35]/5 to-[#00D4AA]/5" />
+                  )}
+
+                  {/* İçerik */}
+                  <div className={`relative z-10 flex-1 flex items-center p-8 md:p-12 ${isEven ? "" : "justify-end"}`}>
+                    <div className="max-w-lg">
+                      <div className="w-10 h-0.5 bg-[#FF6B35] mb-4" />
+                      <h3 className="text-2xl md:text-3xl font-black tracking-tighter text-white mb-3 leading-tight">
+                        {feature.title}
+                      </h3>
+                      <p className="text-white/60 text-sm leading-relaxed max-w-md">
+                        {feature.description}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* ── Yorumlar ── */}
         {product.reviews.length > 0 && (
           <div className="mt-16">
             <h2 className="text-xl font-bold text-white mb-6">

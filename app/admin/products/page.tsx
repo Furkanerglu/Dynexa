@@ -15,8 +15,9 @@ export default async function AdminProductsPage() {
     <AdminProductsClient
       initialProducts={products.map((p) => ({
         ...p,
-        price: Number(p.price),
+        price:     Number(p.price),
         salePrice: p.salePrice ? Number(p.salePrice) : null,
+        specs:     (p.specs as Record<string, unknown>) ?? null,
       }))}
       categories={categories}
     />
